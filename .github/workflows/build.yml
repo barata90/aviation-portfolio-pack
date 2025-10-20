@@ -1,4 +1,6 @@
 name: Build data dictionary
+permissions:
+  contents: write
 
 on:
   push:
