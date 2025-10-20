@@ -1,6 +1,6 @@
 # Data Dictionary
 
-_Generated: 2025-10-21 05:30_
+_Generated: 2025-10-20 22:47_
 
 Dokumen ini berisi ringkasan struktur & statistik kolom untuk dataset yang dipakai di portfolio.
 
@@ -97,63 +97,4 @@ _preview not available_
 1 | src_iata | VARCHAR | 0 | 54 |  |  | ATL (16); BKK (6); HGH (5); JFK (4); CDG (3)
 2 | dst_iata | VARCHAR | 0 | 56 |  |  | ATL (8); JFK (7); SIN (5); BKK (4); HGH (4)
 3 | num_routes | BIGINT | 0 | 7 | 9.0 | 20.0 | 10.2700
-
-
-### route_counts (DuckDB)
-
-- **Source**: DuckDB table: route_counts
-- **Rows**: 37595
-
-**Preview (first 5 rows)**
-
-_preview not available_
-
-# | Column | DuckDB Type | Nulls | Distinct | Min | Max | Mean/Examples
-1 | src_iata | VARCHAR | 0 | 3409 |  |  | FRA (239); CDG (237); AMS (232); IST (227); ATL (217)
-2 | dst_iata | VARCHAR | 0 | 3418 |  |  | FRA (238); CDG (233); AMS (231); IST (230); ATL (216)
-3 | num_routes | BIGINT | 0 | 15 | 1.0 | 20.0 | 1.7998
-
-
-### airport_degree (DuckDB)
-
-- **Source**: DuckDB table: airport_degree
-- **Rows**: 3425
-
-**Preview (first 5 rows)**
-
-_preview not available_
-
-# | Column | DuckDB Type | Nulls | Distinct | Min | Max | Mean/Examples
-1 | iata | VARCHAR | 0 | 3425 |  |  | AAE (1); AAL (1); AAN (1); AAQ (1); AAR (1)
-2 | deg_out | BIGINT | 0 | 143 | 0.0 | 239.0 | 10.9766
-3 | deg_in | BIGINT | 0 | 143 | 0.0 | 238.0 | 10.9766
-4 | deg_total | BIGINT | 0 | 224 | 1.0 | 477.0 | 21.9533
-
-
-### euro_atfm_timeseries (DuckDB)
-
-- **Source**: DuckDB table: euro_atfm_timeseries
-- **Rows**: 72
-
-**Preview (first 5 rows)**
-
-_preview not available_
-
-# | Column | DuckDB Type | Nulls | Distinct | Min | Max | Mean/Examples
-1 | period_start | DATE | 0 | 72 | 2019-01-01 00:00:00 | 2024-12-01 00:00:00 | 
-2 | delay_minutes | DOUBLE | 0 | 1 | 1.0 | 1.0 | 1.0000
-
-
-### euro_atfm_by_location (DuckDB)
-
-- **Source**: DuckDB table: euro_atfm_by_location
-- **Rows**: 28
-
-**Preview (first 5 rows)**
-
-_preview not available_
-
-# | Column | DuckDB Type | Nulls | Distinct | Min | Max | Mean/Examples
-1 | location | VARCHAR | 0 | 28 |  |  | ANS CR (1); AirNav Ireland (1); Austro Control (1); Avinor Flysikring AS (1); BULATSA (1)
-2 | delay_minutes | DOUBLE | 0 | 23 | -0.14 | 2.64 | 0.3307
 
