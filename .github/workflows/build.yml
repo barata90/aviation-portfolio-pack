@@ -1,0 +1,50 @@
+name: Build data dictionary
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install duckdb pandas openpyxl pyarrow requests
+
+      # kalau suatu saat mau rebuild data mentah + warehouse di CI, taruh di sini.
+      # untuk sekarang kita cuma regenerasi dictionary dari CSV yang ada di publish/
+
+      - name: Re-build data dictionary
+        run: |
+          python scripts/make_data_dictionary.py \
+            --csv-dir publish \
+            --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
+            --out docs/data_dictionary.md
+
+      - name: Commit changes (if any)
+        run: |
+          if ! git diff --quiet docs/data_dictionary.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add docs/data_dictionary.md
+            git commit -m "CI: update data dictionary"
+          fi
+
+      - name: Push back
+        if: success()
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
