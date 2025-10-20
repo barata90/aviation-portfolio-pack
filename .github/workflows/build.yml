@@ -1,19 +1,23 @@
 name: Build data dictionary
-permissions:
-  contents: write
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
+# Wajib agar GITHUB_TOKEN bisa push
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          persist-credentials: true   # biar git pakai GITHUB_TOKEN bawaan
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -45,8 +49,8 @@ jobs:
           fi
 
       - name: Push back
-        if: success()
-        uses: ad-m/github-push-action@v0.8.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
+        run: |
+          # Rebase dulu kalau ada update di remote, supaya push fast-forward
+          git pull --rebase origin ${{ github.ref_name }} || true
+          # Dorong perubahan (kalau tidak ada perubahan, ini no-op)
+          git push origin HEAD:${{ github.ref_name }}
