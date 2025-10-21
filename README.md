@@ -3,6 +3,10 @@
 > - 🧭 Data catalog: [Data Dictionary](docs/data_dictionary.md) • [Quality Report](docs/quality_report.md)  
 > - 🌐 Live site: https://barata90.github.io/aviation-portfolio-pack/
 
+[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](…/actions/workflows/build.yml)
+[![Deploy site](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml/badge.svg)](…/actions/workflows/pages.yml)
+[![Data Quality](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml/badge.svg)](…/actions/workflows/data_quality.yml)
+
 
 # Aviation Portfolio Data Pack
 
