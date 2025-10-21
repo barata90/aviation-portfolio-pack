@@ -1,24 +1,23 @@
 name: Build data dictionary
 
-# penting: agar GITHUB_TOKEN bisa commit/push
+# pastikan token punya izin tulis (org/repo default kadang 'read')
 permissions:
   contents: write
 
 on:
   push:
     branches: [ main ]
-    # jalankan hanya jika file relevan berubah
     paths:
       - 'scripts/make_data_dictionary.py'
       - 'publish/**'
       - 'docs/**'
       - '.github/workflows/build.yml'
+      - 'requirements.txt'
   workflow_dispatch:
-  # opsional: rebuild terjadwal tiap tanggal 1 jam 02:05 UTC
+  # opsional: rebuild bulanan
   schedule:
     - cron: '5 2 1 * *'
 
-# cegah job tumpang tindih saat push beruntun
 concurrency:
   group: data-dict-${{ github.ref }}
   cancel-in-progress: true
@@ -26,25 +25,31 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # job-level override (jaga-jaga kalau default org ‘read’)
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: false   # biar kredensial tak tertinggal di repo
-          fetch-depth: 0               # aman untuk commit/push
+          # biar credential tidak “lengket”; commit/push akan dihandle action khusus
+          persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
+          cache-dependency-path: requirements.txt
 
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install "duckdb>=1.4.1" pandas openpyxl pyarrow requests
+          pip install -r requirements.txt
 
-      # jika suatu saat ingin rebuild data mentah/warehouse di CI, tambahkan step sebelum ini
+      # Kalau nanti mau rebuild data mentah/warehouse, taruh stepnya sebelum ini
       - name: Re-build data dictionary
         run: |
           python scripts/make_data_dictionary.py \
@@ -52,19 +57,9 @@ jobs:
             --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
             --out docs/data_dictionary.md
 
-      - name: Commit changes (if any)
-        run: |
-          if ! git diff --quiet docs/data_dictionary.md; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add docs/data_dictionary.md
-            git commit -m "CI: update data dictionary"
-          fi
-
-      - name: Push back
-        if: success()
-        uses: ad-m/github-push-action@v0.8.0
+      - name: Commit & push changes (if any)
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # dorong ke branch yang memicu workflow (biasanya 'main')
+          commit_message: "CI: update data dictionary"
+          file_pattern: "docs/data_dictionary.md"
           branch: ${{ github.ref_name }}
