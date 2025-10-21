@@ -8,7 +8,6 @@
 [![Data Quality](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml)
 
 
-
 # Aviation Portfolio Data Pack
 
 This pack to **collect real aviation datasets in minutes** :
