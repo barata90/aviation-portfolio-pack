@@ -1,4 +1,69 @@
 name: Build data dictionary & portfolio
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'publish/**'
+      - 'scripts/make_data_dictionary.py'
+      - 'requirements.txt'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '5 2 1 * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install duckdb pandas openpyxl pyarrow requests
+          fi
+
+      - name: Re-build data dictionary
+        run: |
+          python scripts/make_data_dictionary.py \
+            --csv-dir publish \
+            --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
+            --out docs/data_dictionary.md
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet docs/data_dictionary.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create/update PR
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "CI: update data dictionary"
+          title: "CI: update data dictionary"
+          body: "Automated update of the data dictionary.\n\nRebuilt from CSVs in `publish/`."
+          branch: ci/update-data-dictionary
+          delete-branch: true
+          add-paths: |
+            docs/data_dictionary.md
+name: Build data dictionary & portfolio
 permissions:
   contents: write
   pull-requests: write
@@ -14,15 +79,14 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
   schedule:
-    - cron: '5 2 1 * *'  # opsional: tiap tanggal 1 jam 02:05 UTC
+    - cron: '5 2 1 * *'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+        with: { persist-credentials: false }
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,10 +116,7 @@ jobs:
           python scripts/build_route_network_html.py
           python scripts/build_atfm_reports.py
           python scripts/check_data_quality.py
-          if [ ! -f docs/index.md ]; then
-            echo "# Portfolio" > docs/index.md
-            echo "- [Data Dictionary](./data_dictionary.md)" >> docs/index.md
-          fi
+          [ -f docs/index.md ] || echo "# Portfolio" > docs/index.md
 
       - name: Create PR with updates
         uses: peter-evans/create-pull-request@v6
@@ -63,10 +124,7 @@ jobs:
           commit-message: "Site: auto-build portfolio artifacts"
           title: "Site: auto-build portfolio artifacts"
           body: |
-            This PR updates generated portfolio artifacts in `docs/`:
-            - HTML charts
-            - Data dictionary
-            - Data quality report
+            Updates generated portfolio artifacts in `docs/` (charts, dictionary, data quality).
           branch: ci/auto-artifacts
           delete-branch: true
           add-paths: |
