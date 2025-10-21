@@ -5,5 +5,9 @@ pyarrow
 requests
 plotly
 networkx
+<<<<<<< HEAD
+=======
+
+>>>>>>> f82fe11 (ci/docs: add matplotlib for histogram plots)
 matplotlib
 EOF
