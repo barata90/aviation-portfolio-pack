@@ -1,0 +1,30 @@
+name: Data Quality
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'publish/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dq:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install pandas tabulate
+      - name: Generate quality report
+        run: python scripts/check_data_quality.py
+      - name: Commit report
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs(DQ): update quality_report.md"
+          file_pattern: docs/quality_report.md
