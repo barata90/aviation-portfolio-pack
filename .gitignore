@@ -22,3 +22,4 @@ publish/*
 !publish/*.csv
 job.log
 site/
+docs/pages/
