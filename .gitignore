@@ -21,3 +21,4 @@ data/*
 publish/*
 !publish/*.csv
 job.log
+site/

@@ -1,0 +1,13 @@
+site_name: Aviation Portfolio Pack
+site_description: Data portfolio — routes, airports, dan ATFM analytics
+repo_url: https://github.com/barata90/aviation-portfolio-pack
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - content.code.copy
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
