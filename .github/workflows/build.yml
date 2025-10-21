@@ -1,6 +1,5 @@
 name: Build data dictionary
 
-# Token butuh write ke konten + boleh buka PR
 permissions:
   contents: write
   pull-requests: write
@@ -12,15 +11,14 @@ on:
       - 'scripts/make_data_dictionary.py'
       - 'publish/**'
       - 'docs/**'
-      - '.github/workflows/build.yml'
       - 'requirements.txt'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
-  # opsional: jalan bulanan
   schedule:
-    - cron: '5 2 1 * *'
+    - cron: '5 2 1 * *'  # opsional: jalan tiap tanggal 1 jam 02:05 UTC
 
 concurrency:
-  group: data-dict-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,7 +43,6 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements.txt
 
-      # Rebuild dari CSV yang ada di publish/
       - name: Re-build data dictionary
         run: |
           python scripts/make_data_dictionary.py \
@@ -53,9 +50,17 @@ jobs:
             --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
             --out docs/data_dictionary.md
 
-      # Buat PR hanya jika file berubah
-      - name: Create PR if changes
-        id: cpr
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet docs/data_dictionary.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR if changed
+        if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "CI: update data dictionary"
@@ -66,7 +71,6 @@ jobs:
           delete-branch: true
           add-paths: |
             docs/data_dictionary.md
-
-      - name: Echo PR URL
-        if: steps.cpr.outputs.pull-request-url != ''
-        run: echo "PR created: ${{ steps.cpr.outputs.pull-request-url }}"
+      - name: No changes
+        if: steps.diff.outputs.changed != 'true'
+        run: echo "No changes in docs/data_dictionary.md"
