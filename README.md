@@ -1,3 +1,6 @@
+[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)
+
+
 # Aviation Portfolio Data Pack
 
 This pack to **collect real aviation datasets in minutes** :
