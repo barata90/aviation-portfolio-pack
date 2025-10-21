@@ -1,73 +1,204 @@
-name: Build data dictionary
+#!/usr/bin/env python3
+import os
+from pathlib import Path
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")  # headless render
+import matplotlib.pyplot as plt
 
-permissions:
-  contents: write
-  pull-requests: write
+# --- Paths ---
+DOCS_DIR   = Path("docs")
+PAGES_DIR  = DOCS_DIR / "pages"
+ASSETS_DIR = DOCS_DIR / "assets"
+CSV_DIR    = Path("publish")
 
-on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'publish/**'
-      - 'scripts/make_data_dictionary.py'
-      - '.github/workflows/build.yml'
-  workflow_dispatch:
+DOCS_DIR.mkdir(exist_ok=True)
+PAGES_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# --- Utils ---
+def write_text(path: Path, text: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+def md_table(df: pd.DataFrame, n=10) -> str:
+    try:
+        return df.head(n).to_markdown(index=False)
+    except Exception:
+        return "```\n" + df.head(n).to_string(index=False) + "\n```"
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+def first_numeric_col(df: pd.DataFrame, exclude=None):
+    exclude = set(exclude or [])
+    for c in df.columns:
+        if c in exclude:
+            continue
+        if pd.api.types.is_numeric_dtype(df[c]):
+            return c
+    return None
 
-      - name: Install deps
-        run: |
-          python -m pip install -U pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install duckdb pandas openpyxl pyarrow requests
-          fi
+def detect_date_col(df: pd.DataFrame):
+    # kandidat umum
+    for c in ["date", "day", "dt", "timestamp", "period_start"]:
+        if c in df.columns:
+            s = pd.to_datetime(df[c], errors="coerce")
+            if s.notna().any():
+                df[c] = s
+                return c
+    # fallback: coba semua object
+    for c in df.columns:
+        if df[c].dtype == "object":
+            s = pd.to_datetime(df[c], errors="coerce")
+            if s.notna().sum() > 0:
+                df[c] = s
+                return c
+    return None
 
-      - name: Re-build data dictionary
-        run: |
-          python scripts/make_data_dictionary.py \
-            --csv-dir publish \
-            --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
-            --out docs/data_dictionary.md
+def summarize_numeric(df: pd.DataFrame) -> str:
+    num = df.select_dtypes(include="number")
+    if num.empty:
+        return "_Tidak ada kolom numerik yang bisa dirangkum._"
+    try:
+        return num.describe().T.to_markdown()
+    except Exception:
+        return "```\n" + num.describe().T.to_string() + "\n```"
 
-      - name: Detect changes
-        id: diff
-        run: |
-          if git diff --quiet docs/data_dictionary.md; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+def title_from_csv(csv_path: Path) -> str:
+    return csv_path.stem.replace("_", " ").title()
 
-      - name: Create/update PR (only when changed)
-        if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "CI: update data dictionary"
-          title: "CI: update data dictionary"
-          body: |
-            Automated update of the data dictionary.
+# --- KUNCI POIN (2): path relatif gambar ---
+def rel_asset(page_path: Path, fname: str) -> str:
+    """
+    Kembalikan path relatif dari halaman (docs/pages/*.md) ke docs/assets/*.
+    Karena MkDocs default pakai 'pretty URLs' (directory URLs), di web
+    halaman menjadi /pages/<name>/ — satu level lebih dalam dibanding file system.
+    Jadi kita tambahkan '../' ekstra agar menjadi '../../assets/...'.
+    """
+    rel_fs = os.path.relpath(ASSETS_DIR, start=page_path.parent).replace("\\", "/")  # ../assets
+    rel_url = "../" + rel_fs  # -> ../../assets untuk docs/pages/*
+    return f"{rel_url}/{fname}"
 
-            - Rebuilt from CSVs in `publish/`.
-          branch: ci/update-data-dictionary
-          add-paths: |
-            docs/data_dictionary.md
+def save_hist(df: pd.DataFrame, col: str, title: str, fname: str, page_path: Path):
+    s = df[col].dropna()
+    if s.empty:
+        return None
+    plt.figure()
+    plt.hist(s, bins=30)
+    plt.title(title)
+    plt.xlabel(col)
+    plt.tight_layout()
+    out = ASSETS_DIR / fname
+    out.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return rel_asset(page_path, fname)
 
-      - name: No changes
-        if: steps.diff.outputs.changed != 'true'
-        run: echo "No changes detected. Nothing to PR."
+def save_line(df: pd.DataFrame, date_col: str, value_col: str, title: str, fname: str, page_path: Path):
+    d = df[[date_col, value_col]].dropna()
+    if d.empty:
+        return None
+    d = d.groupby(pd.to_datetime(d[date_col]).dt.date)[value_col].sum().reset_index()
+    if d.empty:
+        return None
+    plt.figure()
+    plt.plot(d[date_col], d[value_col])
+    plt.title(title)
+    plt.xlabel("Date")
+    plt.ylabel(value_col)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    out = ASSETS_DIR / fname
+    out.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return rel_asset(page_path, fname)
+
+# --- Page builder ---
+def make_page_for_csv(csv_path: Path) -> str:
+    # baca CSV (dengan fallback ;)
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        try:
+            df = pd.read_csv(csv_path, sep=";")
+        except Exception:
+            page = PAGES_DIR / f"{csv_path.stem}.md"
+            write_text(page, f"# {title_from_csv(csv_path)}\n\n_Gagal membaca CSV_: {e}\n")
+            return f"pages/{csv_path.stem}.md"
+
+    title = title_from_csv(csv_path)
+    page_path = PAGES_DIR / f"{csv_path.stem}.md"
+
+    # deteksi tanggal + filter 2 tahun terakhir + catat periode data
+    date_col = detect_date_col(df)
+    data_period = ""
+    if date_col:
+        s = pd.to_datetime(df[date_col], errors="coerce")
+        if s.notna().any():
+            df[date_col] = s
+            min_d, max_d = s.min(), s.max()
+            cutoff = max_d - pd.DateOffset(years=2)
+            df_recent = df[s >= cutoff]
+            if not df_recent.empty:
+                df = df_recent
+            data_period = f"_Periode data: {min_d.date()} — {max_d.date()}_"
+
+    # header & metadata
+    md = [f"# {title}\n"]
+    md.append(f"- **File sumber**: `publish/{csv_path.name}`")
+    md.append(f"- **Rows x Cols**: `{df.shape[0]} x {df.shape[1]}`")
+    md.append(f"- **Columns**: {', '.join(map(str, df.columns.tolist()))}")
+    if data_period:
+        md.append(data_period)
+    md.append("")
+
+    # ringkasan numerik + sample
+    md.append("## Ringkasan numerik")
+    md.append(summarize_numeric(df) + "\n")
+
+    md.append("## Sampel data")
+    md.append(md_table(df, n=10) + "\n")
+
+    # visual
+    num_col = first_numeric_col(df)
+    if num_col:
+        img = save_hist(df, num_col, f"Distribusi {num_col}",
+                        f"{csv_path.stem}__hist_{num_col}.png", page_path)
+        if img:
+            md.append(f"## Histogram `{num_col}`\n\n![{num_col}]({img})\n")
+
+    if date_col and num_col:
+        img2 = save_line(df, date_col, num_col, f"Tren harian {num_col}",
+                         f"{csv_path.stem}__line_{num_col}.png", page_path)
+        if img2:
+            md.append(f"## Tren harian (`{date_col}` vs `{num_col}`)\n\n![trend]({img2})\n")
+
+    write_text(page_path, "\n".join(md))
+    return f"pages/{csv_path.stem}.md"
+
+def build_index(pages_rel_paths):
+    badge = "[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)"
+    lines = [
+        "# Aviation Portfolio Pack",
+        "",
+        badge,
+        "",
+        "Situs portfolio ini dirender otomatis dari CSV di folder `publish/`.",
+        "",
+        "## Navigasi cepat",
+        "- [Data dictionary](data_dictionary.md)",
+        "",
+        "## Halaman dataset",
+    ]
+    for rel in sorted(pages_rel_paths):
+        nm = Path(rel).stem.replace("_", " ").title()
+        lines.append(f"- [{nm}]({rel})")
+    write_text(DOCS_DIR / "index.md", "\n".join(lines) + "\n")
+
+def main():
+    csvs = sorted(CSV_DIR.glob("*.csv"))
+    page_paths = [make_page_for_csv(c) for c in csvs]
+    build_index(page_paths)
+    print(f"[OK] Generated {len(page_paths)} pages under docs/pages/ and updated docs/index.md")
+
+if __name__ == "__main__":
+    main()
