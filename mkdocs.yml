@@ -28,4 +28,11 @@ nav:
   - Quality Report: quality_report.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
-  # Halaman dataset akan ditautkan dari index (dibuat otomatis oleh build_docs.py)
+  - Pages:
+      - Airport Degree: pages/airport_degree.md
+      - Dim Airport Clean: pages/dim_airport_clean.md
+      - Euro ATFM By Location: pages/euro_atfm_by_location.md
+      - Euro ATFM Timeseries: pages/euro_atfm_timeseries.md
+      - Route Counts: pages/route_counts.md
+      - Top OD Pairs: pages/top_od_pairs.md
+
