@@ -1,13 +1,27 @@
 name: Build data dictionary
 
+# penting: agar GITHUB_TOKEN bisa commit/push
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
+    # jalankan hanya jika file relevan berubah
+    paths:
+      - 'scripts/make_data_dictionary.py'
+      - 'publish/**'
+      - 'docs/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
+  # opsional: rebuild terjadwal tiap tanggal 1 jam 02:05 UTC
+  schedule:
+    - cron: '5 2 1 * *'
 
-# Wajib agar GITHUB_TOKEN bisa push
-permissions:
-  contents: write
+# cegah job tumpang tindih saat push beruntun
+concurrency:
+  group: data-dict-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -16,22 +30,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          persist-credentials: true   # biar git pakai GITHUB_TOKEN bawaan
+          persist-credentials: false   # biar kredensial tak tertinggal di repo
+          fetch-depth: 0               # aman untuk commit/push
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install duckdb pandas openpyxl pyarrow requests
+          pip install "duckdb>=1.4.1" pandas openpyxl pyarrow requests
 
-      # kalau suatu saat mau rebuild data mentah + warehouse di CI, taruh di sini.
-      # untuk sekarang kita cuma regenerasi dictionary dari CSV yang ada di publish/
-
+      # jika suatu saat ingin rebuild data mentah/warehouse di CI, tambahkan step sebelum ini
       - name: Re-build data dictionary
         run: |
           python scripts/make_data_dictionary.py \
@@ -49,8 +62,9 @@ jobs:
           fi
 
       - name: Push back
-        run: |
-          # Rebase dulu kalau ada update di remote, supaya push fast-forward
-          git pull --rebase origin ${{ github.ref_name }} || true
-          # Dorong perubahan (kalau tidak ada perubahan, ini no-op)
-          git push origin HEAD:${{ github.ref_name }}
+        if: success()
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # dorong ke branch yang memicu workflow (biasanya 'main')
+          branch: ${{ github.ref_name }}
