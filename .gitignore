@@ -20,3 +20,4 @@ data/*
 # (kita izinkan CSV saja)
 publish/*
 !publish/*.csv
+job.log
