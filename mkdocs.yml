@@ -5,12 +5,21 @@ theme:
   name: material
   features:
     - navigation.instant
+    - navigation.tracking
+    - toc.integrate
     - content.code.copy
+    
+plugins:
+  - search
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+      
 markdown_extensions:
   - admonition
   - tables
   - toc:
       permalink: true
+      
 nav:
   - Aviation Portfolio Pack: index.md
   - Data Dictionary: data_dictionary.md
