@@ -1,4 +1,5 @@
 [![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)
+[![Deploy site](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml)
 
 
 # Aviation Portfolio Data Pack
