@@ -1,6 +1,8 @@
 site_name: Aviation Portfolio Pack
-site_description: Data portfolio — routes, airports, dan ATFM analytics
+site_url: https://barata90.github.io/aviation-portfolio-pack/
 repo_url: https://github.com/barata90/aviation-portfolio-pack
+repo_name: barata90/aviation-portfolio-pack
+
 theme:
   name: material
   features:
@@ -8,27 +10,28 @@ theme:
     - navigation.tracking
     - toc.integrate
     - content.code.copy
-    
+
 plugins:
   - search
   - git-revision-date-localized:
       fallback_to_build_date: true
-      
+
 markdown_extensions:
   - admonition
   - tables
   - toc:
       permalink: true
-      
+
 nav:
   - Aviation Portfolio Pack: index.md
   - Data Dictionary: data_dictionary.md
+  - Quality Report: quality_report.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
   - Pages:
       - Airport Degree: pages/airport_degree.md
       - Dim Airport Clean: pages/dim_airport_clean.md
-      - Euro Atfm By Location: pages/euro_atfm_by_location.md
-      - Euro Atfm Timeseries: pages/euro_atfm_timeseries.md
+      - Euro ATFM By Location: pages/euro_atfm_by_location.md
+      - Euro ATFM Timeseries: pages/euro_atfm_timeseries.md
       - Route Counts: pages/route_counts.md
-      - Top Od Pairs: pages/top_od_pairs.md
+      - Top OD Pairs: pages/top_od_pairs.md
