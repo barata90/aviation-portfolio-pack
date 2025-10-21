@@ -57,7 +57,7 @@ def by_location():
     for k in ("airport","icao","iata","location","sector"):
         for c in df.columns:
             if k in c.lower():
-                loc_col = c; breakÂ
+                loc_col = c; break
         if loc_col: break
     if not (vcol and loc_col):
         print("[SKIP] by_location: kolom tidak dikenali")
