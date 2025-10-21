@@ -1,128 +1,37 @@
-#!/usr/bin/env python3
-import os
-from pathlib import Path
-import sys
-import pandas as pd
-import snowflake.connector
-from snowflake.connector.pandas_tools import write_pandas
+name: Load to Snowflake
 
-REQUIRED_ENVS = [
-    "SNOWFLAKE_ACCOUNT","SNOWFLAKE_USER","SNOWFLAKE_PASSWORD",
-    "SNOWFLAKE_WAREHOUSE","SNOWFLAKE_DATABASE","SNOWFLAKE_SCHEMA","SNOWFLAKE_ROLE"
-]
+on:
+  workflow_dispatch:
 
-def env(name: str) -> str:
-    v = os.getenv(name)
-    if not v:
-        print(f"[ERR] Missing env: {name}", file=sys.stderr)
-        sys.exit(1)
-    return v
+permissions:
+  contents: read
 
-def connect():
-    return snowflake.connector.connect(
-        account   = env("SNOWFLAKE_ACCOUNT"),
-        user      = env("SNOWFLAKE_USER"),
-        password  = env("SNOWFLAKE_PASSWORD"),
-        warehouse = env("SNOWFLAKE_WAREHOUSE"),
-        database  = env("SNOWFLAKE_DATABASE"),
-        schema    = env("SNOWFLAKE_SCHEMA"),
-        role      = env("SNOWFLAKE_ROLE"),
-    )
+jobs:
+  load:
+    # Kalau tidak ada secret SNOWFLAKE_ACCOUNT, job otomatis di-skip (bukan fail)
+    if: ${{ secrets.SNOWFLAKE_ACCOUNT != '' }}
+    runs-on: ubuntu-latest
 
-# DDL sederhana utk tabel yang kita publikasi
-DDL_MAP = {
-    "euro_atfm_timeseries.csv": """
-        CREATE OR REPLACE TABLE EURO_ATFM_TIMESERIES (
-          PERIOD_START DATE,
-          DELAY_MINUTES DOUBLE
-        )
-    """,
-    "euro_atfm_by_location.csv": """
-        CREATE OR REPLACE TABLE EURO_ATFM_BY_LOCATION (
-          LOCATION STRING,
-          DELAY_MINUTES DOUBLE
-        )
-    """,
-    "airport_degree.csv": """
-        CREATE OR REPLACE TABLE AIRPORT_DEGREE (
-          IATA STRING,
-          DEG_OUT INT,
-          DEG_IN INT,
-          DEG_TOTAL INT
-        )
-    """,
-    "route_counts.csv": """
-        CREATE OR REPLACE TABLE ROUTE_COUNTS (
-          SRC_IATA STRING,
-          DST_IATA STRING,
-          NUM_ROUTES INT
-        )
-    """,
-}
+    steps:
+      - uses: actions/checkout@v4
 
-def main():
-    csv_dir = Path("publish")
-    if not csv_dir.exists():
-        print("[ERR] Folder publish/ tidak ditemukan")
-        sys.exit(1)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
 
-    conn = connect()
-    try:
-        with conn.cursor() as cur:
-            # Pastikan DB/Schema/Warehouse aktif
-            cur.execute(f"USE WAREHOUSE {os.environ['SNOWFLAKE_WAREHOUSE']}")
-            cur.execute(f"USE DATABASE {os.environ['SNOWFLAKE_DATABASE']}")
-            cur.execute(f"USE SCHEMA {os.environ['SNOWFLAKE_SCHEMA']}")
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install "pandas>=2.0" "pyarrow>=12" "snowflake-connector-python[pandas]"
 
-            for csv_name, ddl in DDL_MAP.items():
-                csv_path = csv_dir / csv_name
-                if not csv_path.exists():
-                    print(f"[SKIP] {csv_name} tidak ada, lewati.")
-                    continue
-
-                print(f"[INFO] Loading {csv_name}...")
-                # Buat tabel
-                cur.execute(ddl)
-
-                # Baca CSV
-                df = pd.read_csv(csv_path)
-
-                # Coerce kolom tanggal kalau ada
-                for col in df.columns:
-                    if "date" in col.lower() or "period" in col.lower():
-                        try:
-                            df[col] = pd.to_datetime(df[col]).dt.date
-                        except Exception:
-                            pass
-
-                table_name = csv_name.replace(".csv", "").upper()
-                # Tabel di DDL pakai nama berbeda? sinkronkan:
-                if table_name == "EURO_ATFM_BY_LOCATION":
-                    table_name = "EURO_ATFM_BY_LOCATION"
-                elif table_name == "EURO_ATFM_TIMESERIES":
-                    table_name = "EURO_ATFM_TIMESERIES"
-                elif table_name == "AIRPORT_DEGREE":
-                    table_name = "AIRPORT_DEGREE"
-                elif table_name == "ROUTE_COUNTS":
-                    table_name = "ROUTE_COUNTS"
-
-                # Kosongkan & muat ulang (sederhana untuk portfolio)
-                cur.execute(f"TRUNCATE TABLE {table_name}")
-
-                ok, nchunks, nrows, _ = write_pandas(
-                    conn, df, table_name,
-                    database=os.environ["SNOWFLAKE_DATABASE"],
-                    schema=os.environ["SNOWFLAKE_SCHEMA"],
-                    quote_identifiers=True
-                )
-                print(f"[OK] {table_name}: chunks={nchunks}, rows={nrows}, success={ok}")
-
-    finally:
-        conn.close()
-
-if __name__ == "__main__":
-    for k in REQUIRED_ENVS:
-        if not os.getenv(k):
-            print(f"[ERR] Missing env: {k}", file=sys.stderr)
-            sys.exit(1)
-    main()
+      - name: Load CSVs to Snowflake
+        env:
+          SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE:      ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE:  ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA:    ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: python scripts/load_to_snowflake.py
