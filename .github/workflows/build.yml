@@ -1,5 +1,6 @@
 name: Build data dictionary
 
+# Token boleh nulis & bikin PR
 permissions:
   contents: write
   pull-requests: write
@@ -14,21 +15,24 @@ on:
       - 'requirements.txt'
       - '.github/workflows/build.yml'
   workflow_dispatch:
+  # Opsional: jalan tiap tanggal 1 jam 02:05 UTC
   schedule:
-    - cron: '5 2 1 * *'  # opsional: tiap tgl 1 jam 02:05 UTC
+    - cron: '5 2 1 * *'
+
+# Hindari dua run saling timpa
+concurrency:
+  group: data-dictionary
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,19 +53,31 @@ jobs:
             --tables route_counts,airport_degree,euro_atfm_timeseries,euro_atfm_by_location \
             --out docs/data_dictionary.md
 
-      - name: Create PR if changed
+      # Buat PR hanya kalau file berubah
+      - name: Create Pull Request
         id: cpr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: "CI: update data dictionary"
-          title: "CI: update data dictionary"
-          body: "Automated update to docs/data_dictionary.md"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'CI: update data dictionary'
+          title: 'CI: update data dictionary'
+          body: |
+            Automated update of the data dictionary.
+            - Rebuilt from CSVs in `publish/`
           branch: ci/update-data-dictionary
-          delete-branch: true
           add-paths: |
             docs/data_dictionary.md
-          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          labels: |
+            automation
+            data-dictionary
+          delete-branch: true
 
-      - name: Print PR URL (if created)
-        if: steps.cpr.outputs.pull-request-url != ''
-        run: echo "Opened PR ${{ steps.cpr.outputs.pull-request-url }}"
+      - name: PR info (if created)
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: |
+          echo "Created PR #${{ steps.cpr.outputs['pull-request-number'] }}"
+          echo "URL: ${{ steps.cpr.outputs['pull-request-url'] }}"
+
+      - name: No changes
+        if: steps.cpr.outputs.pull-request-number == ''
+        run: echo "No changes detected; nothing to commit."
