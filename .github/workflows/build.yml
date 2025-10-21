@@ -13,26 +13,19 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: data-dictionary
-  cancel-in-progress: false
-
 jobs:
   build-dict:
+    # Kalau belum ada CSV di publish/, job di-skip (tidak merah)
+    if: ${{ hashFiles('publish/*.csv') != '' }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0           # butuh full history utk git diff & plugin tanggal
-          ref: ${{ github.ref }}   # pastikan kita pada branch yang benar
-          persist-credentials: true
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
 
       - name: Install deps
         run: |
@@ -45,29 +38,14 @@ jobs:
             --csv-dir publish \
             --out docs/data_dictionary.md
 
-      - name: Show changes (debug)
+      - name: Commit if changed
         run: |
-          git status
-          git --no-pager diff --stat || true
-
-      - name: Commit & push if changed
-        env:
-          BRANCH_NAME: ${{ github.ref_name }}
-        run: |
-          # only commit when file really changed vs HEAD
-          if git diff --quiet -- docs/data_dictionary.md; then
-            echo "No changes to data_dictionary.md"
-            exit 0
+          if ! git diff --quiet docs/data_dictionary.md; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/data_dictionary.md
+            git commit -m "docs: update data dictionary (auto)"
+            git push
+          else
+            echo "No changes."
           fi
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Rebase dengan remote branch agar tidak non-FF
-          git pull --rebase origin "${BRANCH_NAME}"
-
-          git add docs/data_dictionary.md
-          git commit -m "docs: update data dictionary (auto)"
-
-          # Aman untuk state detached HEAD
-          git push origin HEAD:"${BRANCH_NAME}"
