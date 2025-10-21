@@ -1,6 +1,6 @@
 # Data Dictionary
 
-_Generated: 2025-10-21 01:07_
+_Generated: 2025-10-21 02:38_
 
 Dokumen ini berisi ringkasan struktur & statistik kolom untuk dataset yang dipakai di portfolio.
 
