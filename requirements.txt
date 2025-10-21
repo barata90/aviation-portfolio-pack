@@ -1,0 +1,5 @@
+duckdb>=1.4.1
+pandas
+openpyxl
+pyarrow
+requests
