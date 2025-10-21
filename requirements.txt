@@ -13,5 +13,6 @@ matplotlib
 EOF
 mkdocs
 mkdocs-material
+mkdocs-git-revision-date-localized-plugin
 tabulate
 snowflake-connector-python[pandas]
