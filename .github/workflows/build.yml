@@ -1,3 +1,4 @@
+# .github/workflows/build.yml
 name: Build data dictionary
 
 on:
@@ -8,10 +9,14 @@ on:
       - 'scripts/make_data_dictionary.py'
   workflow_dispatch:
   schedule:
-    - cron: '0 2 * * 1'  # mingguan (opsional)
+    - cron: '0 2 * * 1'  # opsional, mingguan
 
 permissions:
   contents: write
+
+concurrency:
+  group: dict-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-dict:
@@ -20,8 +25,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0            # perlu histori git untuk commit/push
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0          # biar ada history penuh
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,15 +45,24 @@ jobs:
             --out docs/data_dictionary.md
 
       - name: Commit & push if changed
-        shell: bash
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
-          if [[ -n "$(git status --porcelain docs/data_dictionary.md)" ]]; then
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add docs/data_dictionary.md
-            git commit -m "docs: update data dictionary (auto)"
-            # dorong ke branch yang memicu workflow (mis. 'main')
-            git push origin HEAD:${{ github.ref_name }}
-          else
+          # hanya lanjut kalau ada perubahan
+          if git diff --quiet -- docs/data_dictionary.md; then
             echo "No changes."
+            exit 0
           fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # pastikan kita berada di branch, bukan detached HEAD
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+
+          git add docs/data_dictionary.md
+          git commit -m "docs: update data dictionary (auto)"
+
+          # dorong HEAD ke branch tujuan (wajib di Actions)
+          git push origin HEAD:"$BRANCH"
