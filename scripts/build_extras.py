@@ -16,8 +16,13 @@ def md5sum(p: Path) -> str:
     return h.hexdigest()
 
 def guess_lat_lon(df: pd.DataFrame):
-    lat_cands = ["latitude","lat","LAT","y","Y"]
-    lon_cands = ["longitude","lon","lng","LONGITUDE","x","X"]
+    # cari berbagai varian nama kolom koordinat
+    lat_cands = [
+        "latitude","Latitude","LAT","lat","y","Y","latitude_deg","lat_deg","lat_dd","lat_dec","lat_decimal"
+    ]
+    lon_cands = [
+        "longitude","Longitude","LON","lon","lng","x","X","longitude_deg","lon_deg","lng_deg","lon_dd","lon_dec","lon_decimal"
+    ]
     lat = next((c for c in lat_cands if c in df.columns), None)
     lon = next((c for c in lon_cands if c in df.columns), None)
     return lat, lon
