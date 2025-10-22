@@ -1,209 +1,139 @@
 #!/usr/bin/env python3
-import os
+from __future__ import annotations
+import io
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 import pandas as pd
+
 import matplotlib
-matplotlib.use("Agg")  # headless for CI
-import matplotlib.pyplot as plt
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
-DOCS_DIR   = Path("docs")
-PAGES_DIR  = DOCS_DIR / "pages"
-ASSETS_DIR = DOCS_DIR / "assets"
-CSV_DIR    = Path("publish")
+ROOT = Path(__file__).resolve().parents[1]
+PUBLISH = ROOT / "publish"
+DOCS = ROOT / "docs"
+DATASETS_DIR = DOCS / "datasets"
+ASSETS_PLOTS = DOCS / "assets" / "plots"
 
-DOCS_DIR.mkdir(exist_ok=True)
-PAGES_DIR.mkdir(parents=True, exist_ok=True)
-ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+DATASETS_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_PLOTS.mkdir(parents=True, exist_ok=True)
 
-def write_text(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+DATE_CANDIDATE_HINTS = {
+    "date","dt","day","flight_date","operating_date","op_date","timestamp",
+    "ts","depart_date","arrival_date","month","year_month","period"
+}
 
-def md_table(df: pd.DataFrame, n=10) -> str:
-    try:
-        return df.head(n).to_markdown(index=False)
-    except Exception:
-        return "```\n" + df.head(n).to_string(index=False) + "\n```"
+def _try_parse_dates(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        low = col.strip().lower()
+        if ("date" in low) or (low in DATE_CANDIDATE_HINTS):
+            df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+    return df
 
-def first_numeric_col(df: pd.DataFrame, exclude=None):
-    exclude = set(exclude or [])
-    for c in df.columns:
-        if c in exclude:
+def _detect_date_col(df: pd.DataFrame) -> str | None:
+    best, best_nonnull = None, 0
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            nn = df[col].notna().sum()
+            if nn > best_nonnull:
+                best_nonnull, best = nn, col
+    return best
+
+def _filter_last_24_months(df: pd.DataFrame, date_col: str):
+    s = df[date_col].dropna()
+    if s.empty:
+        return df, ""
+    end = s.max().to_pydatetime().replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    if (end.year < 1900) or (end > now):
+        end = now
+    start = (pd.Timestamp(end).tz_convert(None) - pd.DateOffset(months=24)).to_pydatetime().replace(tzinfo=timezone.utc)
+    f = df[df[date_col] >= pd.Timestamp(start)]
+    period = f"{start.strftime('%Y-%m')} … {end.strftime('%Y-%m')}"
+    return f, period
+
+def _first_numeric(df: pd.DataFrame, exclude: set[str]) -> str | None:
+    for col, dt in df.dtypes.items():
+        if col in exclude: 
             continue
-        if pd.api.types.is_numeric_dtype(df[c]):
-            return c
+        if pd.api.types.is_numeric_dtype(dt):
+            return col
     return None
 
-def detect_date_col(df: pd.DataFrame):
-    # heuristik umum dulu
-    for c in ["date", "day", "dt", "timestamp", "period_start", "period_end", "time", "datetime"]:
-        if c in df.columns:
-            s = pd.to_datetime(df[c], errors="coerce")
-            if s.notna().any():
-                df[c] = s
-                return c
-    # fallback: coba semua object
-    for c in df.columns:
-        if df[c].dtype == "object":
-            s = pd.to_datetime(df[c], errors="coerce")
-            if s.notna().sum() > 0:
-                df[c] = s
-                return c
-    return None
+def _plot_timeseries(df: pd.DataFrame, date_col: str, value_col: str | None, out_png: Path) -> bool:
+    if df.empty: return False
+    g = df.copy()
+    g["_m"] = g[date_col].dt.to_period("M").dt.to_timestamp()
+    if value_col:
+        series = g.groupby("_m")[value_col].sum(min_count=1)
+        ylabel = value_col
+    else:
+        series = g.groupby("_m").size()
+        ylabel = "records"
+    fig = plt.figure(figsize=(8, 3.5))
+    ax = fig.add_subplot(111)
+    series.plot(ax=ax)
+    ax.set_xlabel("Month")
+    ax.set_ylabel(ylabel)
+    ax.set_title("")
+    fig.tight_layout()
+    fig.savefig(out_png)
+    plt.close(fig)
+    return True
 
-def asset_url_for(page_path: Path, fname: str) -> str:
-    """Return URL path to assets relative to the Markdown page location."""
-    out = ASSETS_DIR / fname
-    rel = os.path.relpath(out, start=page_path.parent)
-    return rel.replace(os.sep, "/")  # web path
+def _sample_html_table(df: pd.DataFrame, max_rows: int = 2000, sample: int = 100) -> str:
+    if len(df) > max_rows:
+        return df.head(sample).to_html(index=False)
+    return df.to_html(index=False)
 
-def save_hist(df: pd.DataFrame, col: str, title: str, fname: str, page_path: Path):
-    s = df[col].dropna()
-    if s.empty:
-        return None
-    plt.figure()
-    s.plot(kind="hist", bins=30)
-    plt.title(title)
-    plt.xlabel(col)
-    plt.tight_layout()
-    (ASSETS_DIR / fname).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(ASSETS_DIR / fname, dpi=150)
-    plt.close()
-    return asset_url_for(page_path, fname)
-
-def save_line(df: pd.DataFrame, date_col: str, value_col: str, title: str, fname: str, page_path: Path):
-    d = df[[date_col, value_col]].dropna()
-    if d.empty:
-        return None
-    d = d.groupby(pd.to_datetime(d[date_col]).dt.date)[value_col].sum().reset_index()
-    if d.empty:
-        return None
-    plt.figure()
-    plt.plot(d[date_col], d[value_col])
-    plt.title(title)
-    plt.xlabel("Date")
-    plt.ylabel(value_col)
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    (ASSETS_DIR / fname).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(ASSETS_DIR / fname, dpi=150)
-    plt.close()
-    return asset_url_for(page_path, fname)
-
-def summarize_numeric(df: pd.DataFrame) -> str:
-    num = df.select_dtypes(include="number")
-    if num.empty:
-        return "_Tidak ada kolom numerik yang bisa dirangkum._"
-    try:
-        return num.describe().T.to_markdown()
-    except Exception:
-        return "```\n" + num.describe().T.to_string() + "\n```"
-
-def title_from_csv(csv_path: Path) -> str:
-    return csv_path.stem.replace("_", " ").title()
-
-def filter_last_2y(df: pd.DataFrame, date_col: str) -> pd.DataFrame:
-    # Pakai max data sebagai anchor (lebih robust drpd 'today')
-    s = pd.to_datetime(df[date_col], errors="coerce")
-    s = s.dropna()
-    if s.empty:
-        return df
-    max_dt = s.max()
-    two_years_ago = max_dt - timedelta(days=365*2)
-    return df[pd.to_datetime(df[date_col], errors="coerce") >= two_years_ago].copy()
-
-def data_period(df: pd.DataFrame, date_col: str):
-    s = pd.to_datetime(df[date_col], errors="coerce").dropna()
-    if s.empty:
-        return None, None
-    return s.min().date(), s.max().date()
-
-def make_page_for_csv(csv_path: Path) -> str:
-    # baca CSV (coba fallback delimiter ;)
-    try:
-        df = pd.read_csv(csv_path)
-    except Exception as e:
+def build_one(csv_path: Path):
+    name = csv_path.stem
+    rel_csv = f"/publish/{csv_path.name}"
+    out_md = DATASETS_DIR / f"{name}.md"
+    out_png = ASSETS_PLOTS / f"{name}.png"
+    df = pd.read_csv(csv_path, encoding="utf-8-sig", low_memory=False)
+    df = _try_parse_dates(df)
+    date_col = _detect_date_col(df)
+    period_txt = ""
+    df2 = df
+    if date_col:
+        df2, period_txt = _filter_last_24_months(df, date_col)
+    num_col = _first_numeric(df2, {date_col} if date_col else set())
+    plotted = False
+    if date_col:
         try:
-            df = pd.read_csv(csv_path, sep=";")
-        except Exception:
-            page = PAGES_DIR / f"{csv_path.stem}.md"
-            write_text(page, f"# {title_from_csv(csv_path)}\n\n_Gagal membaca CSV_: {e}\n")
-            return f"pages/{csv_path.stem}.md"
-
-    title = title_from_csv(csv_path)
-    page_path = PAGES_DIR / f"{csv_path.stem}.md"
-
-    # deteksi & filter 2 tahun terakhir
-    date_col = detect_date_col(df)
-    period_all = (None, None)
-    period_shown = (None, None)
-    if date_col:
-        # periode penuh
-        period_all = data_period(df, date_col)
-        # filter 2 tahun terakhir
-        df = filter_last_2y(df, date_col)
-        period_shown = data_period(df, date_col)
-
-    # kolom numerik untuk chart
-    num_col = first_numeric_col(df, exclude=[date_col] if date_col else None)
-
-    # header & ringkasan
-    md = [f"# {title}\n"]
-    md.append(f"- **File sumber**: `publish/{csv_path.name}`")
-    md.append(f"- **Rows x Cols**: `{df.shape[0]} x {df.shape[1]}`")
-    md.append(f"- **Columns**: {', '.join(map(str, df.columns.tolist()))}")
-    if date_col:
-        if period_all[0] and period_all[1]:
-            md.append(f"- **Periode data (semua)**: `{period_all[0]} — {period_all[1]}`")
-        if period_shown[0] and period_shown[1]:
-            md.append(f"- **Periode data (ditampilkan)**: `{period_shown[0]} — {period_shown[1]}`")
-    md.append("")
-
-    md.append("## Ringkasan numerik")
-    md.append(summarize_numeric(df) + "\n")
-
-    md.append("## Sampel data")
-    md.append(md_table(df, n=10) + "\n")
-
-    # chart
-    if num_col:
-        img = save_hist(df, num_col, f"Distribusi {num_col}", f"{csv_path.stem}__hist_{num_col}.png", page_path)
-        if img:
-            md.append(f"## Histogram `{num_col}`\n\n![{num_col}]({img})\n")
-
-    if date_col and num_col:
-        img2 = save_line(df, date_col, num_col, f"Tren harian {num_col}", f"{csv_path.stem}__line_{num_col}.png", page_path)
-        if img2:
-            md.append(f"## Tren harian (`{date_col}` vs `{num_col}`)\n\n![trend]({img2})\n")
-
-    write_text(page_path, "\n".join(md))
-    return f"pages/{csv_path.stem}.md"
-
-def build_index(pages_rel_paths):
-    badge = "[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)"
-    lines = [
-        "# Aviation Portfolio Pack",
-        "",
-        badge,
-        "",
-        "Situs portfolio ini dirender otomatis dari CSV di folder `publish/`.",
-        "",
-        "## Navigasi cepat",
-        "- [Data dictionary](data_dictionary.md)",
-        "",
-        "## Halaman dataset",
-    ]
-    for rel in sorted(pages_rel_paths):
-        nm = Path(rel).stem.replace("_", " ").title()
-        lines.append(f"- [{nm}]({rel})")
-    write_text(DOCS_DIR / "index.md", "\n".join(lines) + "\n")
+            plotted = _plot_timeseries(df2, date_col, num_col, out_png)
+        except Exception as e:
+            print(f"[WARN] Plot failed for {csv_path.name}: {e}")
+    title = name.replace("_"," ").title()
+    if period_txt:
+        title += f" (Last 24 months: {period_txt})"
+    html_table = _sample_html_table(df2, max_rows=2000, sample=100)
+    sio = io.StringIO()
+    sio.write(f"# {title}\n\n")
+    sio.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})  \n")
+    sio.write(f"**Rows:** {len(df2):,} (of total {len(df):,})  \n")
+    if date_col: sio.write(f"**Date column:** `{date_col}`  \n")
+    if num_col: sio.write(f"**Value column (plotted):** `{num_col}`  \n")
+    sio.write("\n")
+    if plotted and out_png.exists():
+        sio.write(f"![Trend](/assets/plots/{out_png.name})\n\n")
+    if len(df2) > 2000:
+        sio.write("> Note: Large dataset – rendering a basic HTML preview (first 100 rows) to avoid DataTables warnings.\n\n")
+    sio.write(html_table + "\n")
+    out_md.write_text(sio.getvalue(), encoding="utf-8")
+    print(f"Wrote {out_md.relative_to(ROOT)}")
 
 def main():
-    csvs = sorted(CSV_DIR.glob("*.csv"))
-    page_paths = [make_page_for_csv(c) for c in csvs]
-    build_index(page_paths)
-    print(f"[OK] Generated {len(page_paths)} pages under docs/pages/ and updated docs/index.md")
+    if not PUBLISH.exists():
+        print("publish/ not found; nothing to do.")
+        return 0
+    for p in sorted(PUBLISH.glob("*.csv")):
+        try:
+            build_one(p)
+        except Exception as e:
+            print(f"[WARN] Skipping {p.name}: {e}")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
