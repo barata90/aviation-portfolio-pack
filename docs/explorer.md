@@ -3,11 +3,13 @@
 Pilih dataset dan jelajahi langsung (search/sort/paging).
 
 <select id="sel" style="margin:8px 0;"></select>
-<table id="tbl" class="display" width="100%"></table>
+<div id="tbl_mount"><table id="tbl" class="display" width="100%"></table></div>
 
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css"/>
+<link rel="stylesheet" href="https://cdn.datatables.net/scroller/2.4.3/css/scroller.dataTables.min.css"/>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/scroller/2.4.3/js/dataTables.scroller.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <script>
@@ -18,22 +20,75 @@ function siteRoot(){
 const datasetsUrl = siteRoot() + 'assets/datasets.json';
 const publishBase = siteRoot() + 'publish/';
 
+// jadikan 2D array agar DataTables tidak mencari key yang hilang
+function toArrayData(rows, fields){
+  const out = [];
+  for (const r of rows){
+    // skip baris kosong total
+    if (Object.values(r).every(v => v === null || v === "" || typeof v === "undefined")) continue;
+    out.push(fields.map(f => (r[f] ?? "")));
+  }
+  return out;
+}
+// pastikan header unik (DataTables tidak suka header duplikat)
+function uniqueFields(fields){
+  const seen = {};
+  return fields.map(f => {
+    if (!(f in seen)) { seen[f] = 0; return f; }
+    seen[f] += 1; return f + "_" + seen[f];
+  });
+}
+
+function load(fname){
+  const mount = document.getElementById('tbl_mount');
+  // recreate table untuk reset total
+  mount.innerHTML = '<table id="tbl" class="display" width="100%"></table>';
+  const url = publishBase + fname;
+
+  Papa.parse(url, {
+    download: true,
+    header: true,
+    dynamicTyping: false,
+    skipEmptyLines: "greedy",
+    complete: (res) => {
+      const fields0 = res.meta.fields || [];
+      const fields = uniqueFields(fields0);
+      const data = toArrayData(res.data, fields0);
+      const columns = fields.map(t => ({ title: t }));
+
+      $('#tbl').DataTable({
+        data,
+        columns,
+        destroy: true,
+        processing: true,
+        deferRender: true,
+        autoWidth: false,
+        pageLength: 25,
+        lengthMenu: [25, 50, 100, 250, 1000],
+        scrollX: true,
+        // aktifkan virtual scroll bila data besar
+        scroller: data.length > 1000,
+        scrollY: data.length > 1000 ? '60vh' : '',
+        orderClasses: false,
+        stateSave: true
+      });
+    },
+    error: (err) => {
+      mount.innerHTML = '<em>Failed to load CSV: ' + err.message + '</em>';
+      console.error(err);
+    }
+  });
+}
+
 fetch(datasetsUrl).then(r=>r.json()).then(list=>{
   const sel = document.getElementById('sel');
   if (!list.length) { sel.outerHTML = "<em>publish/ kosong.</em>"; return; }
-  list.forEach(d => {
+  for (const d of list){
     const opt = document.createElement('option');
-    opt.value = d.file; opt.textContent = `${d.file}  (${(d.size/1024).toFixed(1)} KB)`;
+    opt.value = d.file;
+    opt.textContent = `${d.file}  (${(d.size/1024).toFixed(1)} KB)`;
     sel.appendChild(opt);
-  });
-  const load = (fname)=>{
-    if ($.fn.DataTable.isDataTable('#tbl')) $('#tbl').DataTable().clear().destroy();
-    const url = publishBase + fname;
-    Papa.parse(url, {download:true, header:true, dynamicTyping:true, complete:(res)=>{
-      const cols = res.meta.fields.map(c=>({title:c, data:c}));
-      $('#tbl').DataTable({data:res.data, columns:cols, pageLength:25, deferRender:true, scrollX:true});
-    }});
-  };
+  }
   sel.addEventListener('change', e => load(e.target.value));
   load(sel.value);
 });
