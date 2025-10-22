@@ -1,0 +1,90 @@
+datasets:
+  euro_atfm_timeseries:
+    path: publish/euro_atfm_timeseries.csv
+    owner: "barata90"
+    steward: "ED&A (TBC)"
+    pii: false
+    cadence: monthly
+    date_column: period_start
+    freshness_max_lag_days: 400
+    primary_key: [period_start]
+    schema:
+      period_start: date
+      delay_minutes: float
+    checks:
+      - type: not_null
+        columns: [period_start, delay_minutes]
+        severity: error
+      - type: unique
+        columns: [period_start]
+        severity: error
+      - type: range
+        column: delay_minutes
+        ge: 0
+        severity: warn
+
+  euro_atfm_by_location:
+    path: publish/euro_atfm_by_location.csv
+    owner: "barata90"
+    steward: "ED&A (TBC)"
+    pii: false
+    cadence: monthly
+    schema:
+      location: string
+      delay_minutes: float
+    checks:
+      - type: not_null
+        columns: [location]
+        severity: error
+      - type: range
+        column: delay_minutes
+        ge: 0
+        severity: warn
+
+  airport_degree:
+    path: publish/airport_degree.csv
+    owner: "barata90"
+    cadence: static
+    schema:
+      iata: string
+      deg_out: int
+      deg_in: int
+      deg_total: int
+    checks:
+      - type: not_null
+        columns: [iata]
+        severity: error
+      - type: expression
+        sql: "deg_total == deg_in + deg_out"
+        severity: error
+
+  route_counts:
+    path: publish/route_counts.csv
+    owner: "barata90"
+    cadence: static
+    schema:
+      src_iata: string
+      dst_iata: string
+      num_routes: int
+    primary_key: [src_iata, dst_iata]
+    checks:
+      - type: unique
+        columns: [src_iata, dst_iata]
+        severity: error
+      - type: range
+        column: num_routes
+        ge: 0
+        severity: warn
+
+  top_od_pairs:
+    path: publish/top_od_pairs.csv
+    owner: "barata90"
+    cadence: static
+    schema:
+      src_iata: string
+      dst_iata: string
+      num_routes: int
+    checks:
+      - type: not_null
+        columns: [src_iata, dst_iata]
+        severity: error
