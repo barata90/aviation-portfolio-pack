@@ -22,6 +22,8 @@ plugins:
 
 extra_css:
   - assets/styles.css
+extra_javascript:
+  - sw-register.js
 
 markdown_extensions:
   - admonition
@@ -42,7 +44,7 @@ nav:
   - Data Dictionary: data_dictionary.md
   - Quality Report: quality_report.md
   - Explorer: explorer.md
-  - Downloads: downloads.md
+  - SQL Lab: sql_lab.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
       - Visual Insights (Executive): case_studies/visual_insights.md
@@ -51,3 +53,4 @@ nav:
       - Scenario Simulator: case_studies/scenario_simulator.md
       - Hub Ranking: case_studies/hub_rank.md
   - Developer API: developers/api.md
+  - Downloads: downloads.md
