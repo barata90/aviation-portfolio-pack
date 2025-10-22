@@ -26,3 +26,6 @@
 
 ---
 *Built with MkDocs Material · static assets under `/docs/assets` · CSVs mirrored to `/docs/publish` during build.*
+
+
+<!-- build: 2025-10-22 08:31 UTC -->

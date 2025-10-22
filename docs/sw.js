@@ -1,4 +1,4 @@
-const SW_VERSION = 'v1';
+const SW_VERSION = 'v2';
 function siteRoot(){ const parts = self.location.pathname.split('/').filter(Boolean); return parts.length ? '/' + parts[0] + '/' : '/'; }
 const CORE = [
 siteRoot(),
