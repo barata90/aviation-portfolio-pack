@@ -15,6 +15,9 @@ plugins:
   - search
   - git-revision-date-localized:
       fallback_to_build_date: true
+      type: date
+      enable_creation_date: false
+      locale: id
 
 markdown_extensions:
   - admonition
@@ -23,32 +26,16 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Aviation Portfolio Pack: index.md
+  - Aviation Portfolio Pack:
+      - Navigasi cepat: index.md
+      - Halaman dataset:
+          - Airport Degree: pages/airport_degree.md
+          - Dim Airport Clean: pages/dim_airport_clean.md
+          - Euro ATFM By Location: pages/euro_atfm_by_location.md
+          - Euro ATFM Timeseries: pages/euro_atfm_timeseries.md
+          - Route Counts: pages/route_counts.md
+          - Top OD Pairs: pages/top_od_pairs.md
   - Data Dictionary: data_dictionary.md
   - Quality Report: quality_report.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
-  - Pages:
-      - Airport Degree: pages/airport_degree.md
-      - Dim Airport Clean: pages/dim_airport_clean.md
-      - Euro ATFM By Location: pages/euro_atfm_by_location.md
-      - Euro ATFM Timeseries: pages/euro_atfm_timeseries.md
-      - Route Counts: pages/route_counts.md
-      - Top OD Pairs: pages/top_od_pairs.md
-
-
-plugins:
-  - search
-  - git-revision-date-localized:
-      fallback_to_build_date: true
-      type: date
-      enable_creation_date: false
-      locale: id
-
-plugins:
-  - search
-  - git-revision-date-localized:
-      fallback_to_build_date: true
-      type: date
-      enable_creation_date: false
-      locale: id
