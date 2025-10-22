@@ -1,68 +1,66 @@
-# Data Quality Report
+# Data Quality Report — overall: 🟠 WARN
 
-## airport_degree.csv — ✅ OK
-- **Rows x Cols**: `3425 x 4`
+Generated: 2025-10-22 02:14 UTC
 
-### Kolom
-| column    | dtype   |   nulls |   null_pct |   min |   max |   unique |
-|:----------|:--------|--------:|-----------:|------:|------:|---------:|
-| iata      | object  |       0 |          0 |   nan |   nan |     3425 |
-| deg_out   | int64   |       0 |          0 |     0 |   239 |      143 |
-| deg_in    | int64   |       0 |          0 |     0 |   238 |      143 |
-| deg_total | int64   |       0 |          0 |     1 |   477 |      224 |
+| Dataset               | Owner    |   Rows | Status   |   Errors |   Warnings | File                                | MD5      |
+|:----------------------|:---------|-------:|:---------|---------:|-----------:|:------------------------------------|:---------|
+| euro_atfm_timeseries  | barata90 |     72 | 🟢 OK     |        0 |          0 | `publish/euro_atfm_timeseries.csv`  | 4846e12e |
+| euro_atfm_by_location | barata90 |     28 | 🟢 OK     |        0 |          1 | `publish/euro_atfm_by_location.csv` | 4e9c242a |
+| airport_degree        | barata90 |   3425 | 🟢 OK     |        0 |          0 | `publish/airport_degree.csv`        | fe76e229 |
+| route_counts          | barata90 |  37595 | 🟢 OK     |        0 |          0 | `publish/route_counts.csv`          | b430349b |
+| top_od_pairs          | barata90 |    100 | 🟢 OK     |        0 |          0 | `publish/top_od_pairs.csv`          | 1988bd25 |
 
-## dim_airport_clean.csv — ✅ OK
-- **Rows x Cols**: `6072 x 8`
+### euro_atfm_timeseries 🟢
 
-### Kolom
-| column       | dtype   |   nulls |   null_pct |      min |     max |   unique |
-|:-------------|:--------|--------:|-----------:|---------:|--------:|---------:|
-| iata         | object  |       0 |      0     |  nan     | nan     |     6072 |
-| icao         | object  |       0 |      0     |  nan     | nan     |     6072 |
-| airport_name | object  |       0 |      0     |  nan     | nan     |     6046 |
-| city         | object  |      39 |      0.642 |  nan     | nan     |     5602 |
-| country      | object  |       0 |      0     |  nan     | nan     |      235 |
-| lat          | float64 |       0 |      0     |  -62.191 |  82.518 |     6062 |
-| lon          | float64 |       0 |      0     | -179.877 | 179.951 |     6064 |
-| tz           | object  |     557 |      9.173 |  nan     | nan     |      306 |
+- Path: `publish/euro_atfm_timeseries.csv`  
+- Owner: barata90  
+- Rows: 72  
+- PII: False  
+- Cadence: monthly
 
-## euro_atfm_by_location.csv — ✅ OK
-- **Rows x Cols**: `28 x 2`
-
-### Kolom
-| column        | dtype   |   nulls |   null_pct |    min |    max |   unique |
-|:--------------|:--------|--------:|-----------:|-------:|-------:|---------:|
-| location      | object  |       0 |          0 | nan    | nan    |       28 |
-| delay_minutes | float64 |       0 |          0 |  -0.14 |   2.64 |       23 |
-
-## euro_atfm_timeseries.csv — ✅ OK
-- **Rows x Cols**: `72 x 2`
-
-### Kolom
-| column        | dtype   |   nulls |   null_pct |   min |   max |   unique |
-|:--------------|:--------|--------:|-----------:|------:|------:|---------:|
-| period_start  | object  |       0 |          0 |   nan |   nan |       72 |
-| delay_minutes | float64 |       0 |          0 |     1 |     1 |        1 |
-
-## route_counts.csv — ✅ OK
-- **Rows x Cols**: `37595 x 3`
-
-### Kolom
-| column     | dtype   |   nulls |   null_pct |   min |   max |   unique |
-|:-----------|:--------|--------:|-----------:|------:|------:|---------:|
-| src_iata   | object  |       0 |          0 |   nan |   nan |     3409 |
-| dst_iata   | object  |       0 |          0 |   nan |   nan |     3418 |
-| num_routes | int64   |       0 |          0 |     1 |    20 |       15 |
-
-## top_od_pairs.csv — ✅ OK
-- **Rows x Cols**: `100 x 3`
-
-### Kolom
-| column     | dtype   |   nulls |   null_pct |   min |   max |   unique |
-|:-----------|:--------|--------:|-----------:|------:|------:|---------:|
-| src_iata   | object  |       0 |          0 |   nan |   nan |       54 |
-| dst_iata   | object  |       0 |          0 |   nan |   nan |       56 |
-| num_routes | int64   |       0 |          0 |     9 |    20 |        7 |
+- No issues detected.
 
 
-**Overall status**: ✅ PASS
+### euro_atfm_by_location 🟢
+
+- Path: `publish/euro_atfm_by_location.csv`  
+- Owner: barata90  
+- Rows: 28  
+- PII: False  
+- Cadence: monthly
+
+- 🟠 delay_minutes out-of-range rows: 11
+
+
+### airport_degree 🟢
+
+- Path: `publish/airport_degree.csv`  
+- Owner: barata90  
+- Rows: 3425  
+- PII: False  
+- Cadence: static
+
+- No issues detected.
+
+
+### route_counts 🟢
+
+- Path: `publish/route_counts.csv`  
+- Owner: barata90  
+- Rows: 37595  
+- PII: False  
+- Cadence: static
+
+- No issues detected.
+
+
+### top_od_pairs 🟢
+
+- Path: `publish/top_od_pairs.csv`  
+- Owner: barata90  
+- Rows: 100  
+- PII: False  
+- Cadence: static
+
+- No issues detected.
+
