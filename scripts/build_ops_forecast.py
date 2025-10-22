@@ -1,83 +1,168 @@
-
 #!/usr/bin/env python3
-import pandas as pd, numpy as np, json
+"""
+Build Ops Forecast JSON for the site.
+
+Behavior:
+- Scan PUBLISH_DIR for a CSV with a date-like column and a numeric metric.
+- Aggregate monthly, estimate simple linear+seasonal model, detect anomalies
+  via robust Z (MAD), and forecast next 6 months.
+- If no suitable data is found, write a minimal, valid JSON placeholder.
+- Never fail the CI; always write OUTPUT_JSON.
+
+Allowed libs: pandas, numpy
+"""
+from __future__ import annotations
+import os, json
 from pathlib import Path
+from dataclasses import dataclass
+import numpy as np
+import pandas as pd
+from datetime import datetime, timezone
 
-ROOT = Path('.'); DOCS = ROOT/'docs'; ASSETS = DOCS/'assets'; PUB = ROOT/'publish'
-ASSETS.mkdir(parents=True, exist_ok=True)
+PUBLISH_DIR = Path(os.environ.get("PUBLISH_DIR", "publish"))
+OUTPUT_JSON = Path(os.environ.get("OUTPUT_JSON", "docs/assets/ops_forecast.json"))
 
-def seasonality_index(y, months):
-    # index musiman 12 bulan, berbasis rasio ke tren (MA12)
-    ma = y.rolling(12, min_periods=6, center=True).mean()
-    ratio = y / ma.replace(0, np.nan)
-    si = ratio.groupby(months).mean().fillna(1.0)
-    # normalisasi agar rata-rata 1
-    si = si * (12.0 / si.sum())
+DATE_HINTS = {"date","dt","day","flight_date","operating_date","op_date","timestamp","ts","period","month","year_month"}
+
+@dataclass
+class SeriesPack:
+    ts: pd.DatetimeIndex
+    y: pd.Series  # monthly total
+    name: str
+
+def _coerce_dates(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        low = str(col).lower()
+        if ("date" in low) or (low in DATE_HINTS):
+            df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+    return df
+
+def _pick_series() -> SeriesPack | None:
+    if not PUBLISH_DIR.exists():
+        return None
+    for csv_path in sorted(PUBLISH_DIR.glob("*.csv")):
+        try:
+            df = pd.read_csv(csv_path, encoding="utf-8-sig", low_memory=False)
+            df = _coerce_dates(df)
+            # choose date col
+            date_col = None
+            for c in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[c]):
+                    date_col = c
+                    break
+            if not date_col:
+                continue
+            # choose numeric col (if any), else count rows
+            value_col = None
+            for c in df.columns:
+                if c == date_col: 
+                    continue
+                if pd.api.types.is_numeric_dtype(df[c]):
+                    value_col = c
+                    break
+            d = df[[date_col] + ([value_col] if value_col else [])].dropna(subset=[date_col]).copy()
+            if d.empty:
+                continue
+            d["_m"] = d[date_col].dt.to_period("M").dt.to_timestamp()
+            if value_col:
+                y = d.groupby("_m")[value_col].sum(min_count=1)
+            else:
+                y = d.groupby("_m").size()
+                y = pd.Series(y, index=y.index)
+            y = y.sort_index()
+            if len(y) < 6:
+                continue
+            return SeriesPack(ts=y.index, y=y, name=csv_path.name)
+        except Exception:
+            # Skip problematic CSVs
+            continue
+    return None
+
+def _robust_z(x: pd.Series) -> pd.Series:
+    med = x.median()
+    mad = (x - med).abs().median()
+    if mad == 0 or np.isnan(mad):
+        return pd.Series(np.zeros(len(x)), index=x.index)
+    return 0.6745 * (x - med) / mad
+
+def _seasonal_index(y: pd.Series) -> pd.Series:
+    # monthly seasonality (12)
+    if len(y) < 12:
+        return pd.Series(np.ones_like(y, dtype=float), index=y.index)
+    df = y.to_frame("y")
+    df["m"] = df.index.month
+    # multiplicative SI
+    monthly_avg = df.groupby("m")["y"].mean()
+    si = df["m"].map(monthly_avg) / df["y"].mean()
+    si.index = y.index
     return si
 
-def forecast_linear_seasonal(y, months, horizon=6):
-    # trend linear (polyfit orde 1) + indeks musiman 12
-    t = np.arange(len(y))
-    coeff = np.polyfit(t[~y.isna()], y.dropna(), 1) if (~y.isna()).sum()>=3 else [0.0, float(np.nanmean(y))]
-    slope, intercept = coeff[0], coeff[1]
-    si = seasonality_index(y, months)
-    # nilai deseasonal
-    ds = y / si.reindex(months).values
-    ds = ds.replace([np.inf, -np.inf], np.nan).fillna(method='bfill').fillna(method='ffill')
-    # residual untuk anomaly
-    trend = slope*t + intercept
-    fitted = si.reindex(months).values * trend
-    resid = y - fitted
-    # robust z
-    med = np.nanmedian(resid)
-    mad = np.nanmedian(np.abs(resid - med))
-    z = (resid - med) / (1.4826*(mad if mad>0 else (np.nanstd(resid)+1e-9)))
-    anomalies = []
-    for i,(val,zi) in enumerate(zip(y, z)):
-        if np.isfinite(zi) and abs(zi) >= 2.5:
-            anomalies.append({"idx": i, "z": round(float(zi),2), "value": float(val)})
-    # forecast
-    last_t = len(y)-1
-    fh_months = []
-    fh_values = []
-    for h in range(1, horizon+1):
-        tt = last_t + h
-        mo = int(months.iloc[-1-h+1]) if len(months)>0 else ((tt)%12)+1
-        # ambil bulan-ke (1..12) dari urutan kalender
-        mo = ((int(months.iloc[-1]) + h -1) % 12) + 1 if len(months)>0 else mo
-        trend_h = slope*tt + intercept
-        fh = float(trend_h) * float(si.loc.get(mo, 1.0))
-        fh_months.append(mo); fh_values.append(fh)
-    return fitted, anomalies, si, fh_values
+def _fit_forecast(y: pd.Series, horizon: int = 6):
+    # Prepare time index as 0..n-1
+    t = np.arange(len(y), dtype=float)
+    # De-seasonalize (multiplicative)
+    si = _seasonal_index(y).replace([np.inf, -np.inf], np.nan).bfill().ffill()
+    y_ds = (y / si).replace([np.inf, -np.inf], np.nan).bfill().ffill()
+    # Linear trend via OLS on y_ds ~ [1, t]
+    X = np.column_stack([np.ones_like(t), t])
+    beta, *_ = np.linalg.lstsq(X, y_ds.to_numpy(), rcond=None)
+    trend = pd.Series(beta[0] + beta[1] * t, index=y.index)
+    fitted = trend * si
+    # Forecast indices
+    h_t = np.arange(len(y), len(y) + horizon, dtype=float)
+    # seasonal for future months
+    last = y.index[-1]
+    fut_months = [((last.to_period("M") + i).to_timestamp()) for i in range(1, horizon + 1)]
+    fut_m = pd.Index(fut_months)
+    # Build seasonal index for future by re-using monthly means
+    base = y.to_frame("y")
+    base["m"] = base.index.month
+    monthly_avg = base.groupby("m")["y"].mean()
+    fut_si = pd.Series([monthly_avg.get(dt.month, monthly_avg.mean()) for dt in fut_m], index=fut_m)
+    fut_trend = pd.Series(beta[0] + beta[1] * h_t, index=fut_m)
+    forecast = (fut_trend * fut_si).clip(lower=0)
+    # anomalies on residuals
+    resid = (y - fitted)
+    rz = _robust_z(resid.fillna(0))
+    anomalies = y[rz.abs() >= 3.5]  # threshold
+    return fitted, forecast, si, anomalies
+
+def _serialize(pack: SeriesPack | None):
+    now = datetime.now(timezone.utc).isoformat()
+    if pack is None:
+        return {
+            "status": "no_input",
+            "generated_at": now,
+            "series": [],
+            "fitted": [],
+            "forecast": [],
+            "anomalies": [],
+            "seasonality": [],
+            "meta": {"note": "No suitable dataset found in publish/; placeholder written."}
+        }
+    y = pack.y
+    fitted, forecast, si, anomalies = _fit_forecast(y, horizon=6)
+    def to_pairs(s: pd.Series):
+        return [{"t": int(pd.Timestamp(i).timestamp()*1000), "y": float(v)} for i, v in s.dropna().items()]
+    return {
+        "status": "ok",
+        "generated_at": now,
+        "source": pack.name,
+        "series": to_pairs(y),
+        "fitted": to_pairs(fitted),
+        "forecast": to_pairs(forecast),
+        "anomalies": to_pairs(anomalies),
+        "seasonality": [{"m": int(i.month), "si": float(v)} for i, v in si.dropna().items()]
+    }
 
 def main():
-    p = PUB/'euro_atfm_timeseries.csv'
-    if not p.exists():
-        print('[skip] timeseries not found'); return 0
-    df = pd.read_csv(p, parse_dates=['period_start'])
-    if df.empty or 'delay_minutes' not in df.columns:
-        print('[skip] no data'); return 0
-    df = df.sort_values('period_start')
-    # asumsi monthly; kalau tidak, resample monthly
-    m = df.set_index('period_start')['delay_minutes']
-    if m.index.inferred_freq is None:
-        m = m.resample('MS').sum()
-    months_num = m.index.month
-    fitted, anomalies, si, fh_vals = forecast_linear_seasonal(m, months_num, horizon=6)
-    out = {
-      "months": [d.strftime('%Y-%m') for d in m.index],
-      "actual": [float(x) if pd.notna(x) else None for x in m.values],
-      "fitted": [float(x) if pd.notna(x) else None for x in fitted],
-      "anomalies": [{"month": out_idx, "label": m.index[z['idx']].strftime('%Y-%m'), "z": z["z"], "value": z["value"]} for out_idx, z in enumerate(anomalies)],
-      "seasonal_index": {str(k): float(v) for k,v in si.to_dict().items()},  # 1..12
-      "forecast": {
-        "months_ahead": 6,
-        "values": [float(v) for v in fh_vals]
-      }
-    }
-    (ASSETS/'ops_forecast.json').write_text(json.dumps(out), encoding='utf-8')
-    print('[ok] assets/ops_forecast.json written')
+    OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
+    pack = _pick_series()
+    payload = _serialize(pack)
+    with open(OUTPUT_JSON, "w", encoding="utf-8") as w:
+        json.dump(payload, w, indent=2)
+    print(f"Wrote {OUTPUT_JSON} (status={payload['status']})")
     return 0
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())
