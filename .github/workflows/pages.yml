@@ -52,6 +52,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Build case studies
+        run: python scripts/build_case_studies.py
+
       - name: Build with MkDocs
         run: mkdocs build --site-dir ./site
 
