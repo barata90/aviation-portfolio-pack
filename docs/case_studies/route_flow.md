@@ -3,13 +3,12 @@
 <div id="sankey" style="height:520px;"></div>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script>
-
 function siteRoot(){
   const parts = location.pathname.split('/').filter(Boolean);
   return parts.length ? '/' + parts[0] + '/' : '/';
 }
 function bust(u){
-  const v = Date.now(); // force fresh fetch on Pages/CDN
+  const v = Date.now(); // avoid stale JSON/CSV on GitHub Pages/CDN
   return u + (u.includes('?') ? '&' : '?') + 'v=' + v;
 }
 

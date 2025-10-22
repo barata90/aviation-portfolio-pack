@@ -13,13 +13,12 @@ Pick a dataset and explore (search / sort / paging).
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <script>
-
 function siteRoot(){
   const parts = location.pathname.split('/').filter(Boolean);
   return parts.length ? '/' + parts[0] + '/' : '/';
 }
 function bust(u){
-  const v = Date.now(); // force fresh fetch on Pages/CDN
+  const v = Date.now(); // avoid stale JSON/CSV on GitHub Pages/CDN
   return u + (u.includes('?') ? '&' : '?') + 'v=' + v;
 }
 
@@ -75,9 +74,7 @@ function initExplorer(){
     load(sel.value);
   });
 }
-// first load
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initExplorer);
 else initExplorer();
-// on every instant navigation
 if (window.document$) document$.subscribe(initExplorer);
 </script>
