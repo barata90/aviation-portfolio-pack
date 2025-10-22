@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""
+Build dataset pages and simple visuals for MkDocs.
+
+- Uses matplotlib Agg (headless).
+- For each CSV in publish/, detect a date-like column.
+- Filter to last 24 months if a date column exists.
+- Save plots to docs/assets/plots/<name>.png
+- Generate docs/datasets/<name>.md using relative paths.
+- For large CSVs (>2000 rows), render a basic HTML table (fallback).
+
+Allowed libs: pandas, matplotlib, tabulate.
+"""
 from __future__ import annotations
 import io
 from pathlib import Path
@@ -54,7 +66,7 @@ def _filter_last_24_months(df: pd.DataFrame, date_col: str):
 
 def _first_numeric(df: pd.DataFrame, exclude: set[str]) -> str | None:
     for col, dt in df.dtypes.items():
-        if col in exclude: 
+        if col in exclude:
             continue
         if pd.api.types.is_numeric_dtype(dt):
             return col
@@ -88,7 +100,7 @@ def _sample_html_table(df: pd.DataFrame, max_rows: int = 2000, sample: int = 100
 
 def build_one(csv_path: Path):
     name = csv_path.stem
-    rel_csv = f"/publish/{csv_path.name}"
+    rel_csv = f"{{{{ base_url }}}}/publish/{csv_path.name}"
     out_md = DATASETS_DIR / f"{name}.md"
     out_png = ASSETS_PLOTS / f"{name}.png"
     df = pd.read_csv(csv_path, encoding="utf-8-sig", low_memory=False)
@@ -112,12 +124,12 @@ def build_one(csv_path: Path):
     sio = io.StringIO()
     sio.write(f"# {title}\n\n")
     sio.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})  \n")
-    sio.write(f"**Rows:** {len(df2):,} (of total {len(df):,})  \n")
+    sio.write(f"**Rows:** {len(df2):,} (of total {len[df]:,})  \n".replace("[", "(").replace("]", ")"))  # safe str
     if date_col: sio.write(f"**Date column:** `{date_col}`  \n")
     if num_col: sio.write(f"**Value column (plotted):** `{num_col}`  \n")
     sio.write("\n")
     if plotted and out_png.exists():
-        sio.write(f"![Trend](/assets/plots/{out_png.name})\n\n")
+        sio.write(f"![Trend]({{{{ base_url }}}}/assets/plots/{out_png.name})\n\n")
     if len(df2) > 2000:
         sio.write("> Note: Large dataset – rendering a basic HTML preview (first 100 rows) to avoid DataTables warnings.\n\n")
     sio.write(html_table + "\n")
