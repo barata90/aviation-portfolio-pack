@@ -76,6 +76,10 @@ jobs:
         run: |
           python scripts/build_datasets_index.py
 
+      - name: Ensure MkDocs extra_javascript hook
+        run: |
+          python scripts/ensure_mkdocs_extra_js.py
+
       - name: Build dataset pages & visuals
         run: |
           python scripts/build_docs.py
