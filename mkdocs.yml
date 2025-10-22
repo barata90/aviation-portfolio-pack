@@ -36,3 +36,19 @@ nav:
       - Route Counts: pages/route_counts.md
       - Top OD Pairs: pages/top_od_pairs.md
 
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+      type: date
+      enable_creation_date: false
+      locale: id
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+      type: date
+      enable_creation_date: false
+      locale: id
