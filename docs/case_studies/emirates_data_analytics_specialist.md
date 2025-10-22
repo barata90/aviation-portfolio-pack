@@ -134,3 +134,19 @@ bash get_data.sh                                 # ambil & siapkan dataset
 python scripts/make_data_dictionary.py --csv-dir publish --out docs/data_dictionary.md
 mkdocs build --strict && mkdocs serve            # lihat lokal
 
+cat > docs/uat_checklist.md <<'MD'
+# UAT Checklist
+
+## Scope
+Validasi dataset di `publish/` dan integrasi visualisasi.
+
+## Acceptance Criteria
+- **Schema**: kolom wajib ada; tipe sesuai.
+- **Freshness**: bila ada kolom tanggal, `max(date)` ≤ 45 hari dari build.
+- **Nulls**: kolom kunci null ≤ 5%.
+- **Duplicate keys**: tidak ada duplikat untuk pasangan kunci yang didefinisikan.
+- **BI**: visual Power BI/MicroStrategy terbentuk tanpa error.
+
+## Test Cases (contoh)
+- `euro_atfm_timeseries`: total 12M = SUM bulanan 12M; YoY% sesuai definisi.
+- `airport_degree`: `deg_total = deg_in + deg_out` untuk setiap baris.
