@@ -49,6 +49,11 @@ jobs:
       - name: Build extras (geojson, sankey, explorer, downloads)
         run: |
           python scripts/build_extras.py
+      - name: Include publish data into site
+        run: |
+          mkdir -p docs/publish
+          cp -a publish/. docs/publish/ || true
+
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

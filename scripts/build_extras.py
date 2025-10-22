@@ -85,32 +85,29 @@ def build_sankey_json():
     print(f"[sankey] wrote {out}")
 
 def build_explorer_manifest_and_downloads():
-    files = sorted(PUB.glob("*.csv"))
+    files = sorted((ROOT / "publish").glob("*.csv"))
     manifest = []
-    rows = []
+    lines = ["# Downloads", "", "| File | Size (KB) | MD5 |", "|---|---:|---|"]
     for f in files:
         size = f.stat().st_size
-        md5 = md5sum(f)
+        md5 = __import__("hashlib").md5(f.read_bytes()).hexdigest()
+        # preview columns (optional manifest)
         try:
-            df = pd.read_csv(f, nrows=5)
-            cols = df.columns.tolist()
+            import pandas as pd
+            cols = pd.read_csv(f, nrows=5).columns.tolist()
         except Exception:
             cols = []
         manifest.append({"file":f.name, "size":size, "md5":md5, "columns":cols})
-        rows.append({"File":f.name, "Size (KB)": round(size/1024,1), "MD5": md5[:8]})
-    (ASSETS / "datasets.json").write_text(json.dumps(manifest), encoding="utf-8")
-
-    md = ["# Downloads\n"]
-    if rows:
-        t = pd.DataFrame(rows)
-        md.append(t.to_markdown(index=False))
-        md.append("\n> Link langsung: gunakan menu **Publish** di kiri.")
-    else:
-        md.append("_No files in `publish/`._")
-    (DOCS / "downloads.md").write_text("\n".join(md), encoding="utf-8")
-    print(f"[explorer] wrote datasets.json and downloads.md")
+        lines.append(f"| [{f.name}](publish/{f.name}) | {size/1024:.1f} | {md5[:8]} |")
+    (ASSETS / "datasets.json").write_text(__import__("json").dumps(manifest), encoding="utf-8")
+    (DOCS / "downloads.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("[explorer] wrote datasets.json and downloads.md")
 
 def main():
+    build_airports_geojson()
+    build_sankey_json()
+    build_explorer_manifest_and_downloads()
+
     build_airports_geojson()
     build_sankey_json()
     build_explorer_manifest_and_downloads()

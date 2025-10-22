@@ -1,6 +1,6 @@
 # Network Map — Airport Connectivity (Leaflet)
 
-<div id="map" style="height:520px; border-radius:8px; overflow:hidden;"></div>
+<div id="map" style="height:520px; min-height:520px; width:100%; border-radius:8px; overflow:hidden;"></div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -14,6 +14,7 @@ const map = L.map('map').setView([25.25, 55.3], 3);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 8, attribution: '&copy; OpenStreetMap'
 }).addTo(map);
+setTimeout(()=>map.invalidateSize(), 150);
 
 fetch(siteRoot() + 'assets/airports.geojson')
   .then(r => r.json())
