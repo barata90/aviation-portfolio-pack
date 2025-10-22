@@ -48,3 +48,6 @@ nav:
       - Visual Insights (Executive): case_studies/visual_insights.md
       - Network Map: case_studies/network_map.md
       - Route Flow (Sankey): case_studies/route_flow.md
+      - Scenario Simulator: case_studies/scenario_simulator.md
+      - Hub Ranking: case_studies/hub_rank.md
+  - Developer API: developers/api.md

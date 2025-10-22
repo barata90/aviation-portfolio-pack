@@ -55,6 +55,15 @@ jobs:
           cp -a publish/. docs/publish/ || true
 
 
+      - name: Build advanced assets
+        run: |
+          python scripts/build_adv_assets.py
+
+      - name: Include publish data into site
+        run: |
+          mkdir -p docs/publish
+          cp -a publish/. docs/publish/ || true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
