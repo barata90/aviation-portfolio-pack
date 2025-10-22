@@ -7,6 +7,7 @@ on:
       - 'publish/**'
       - 'docs/**'
       - 'scripts/build_docs.py'
+      - 'scripts/build_viz_advanced.py'
       - 'mkdocs.yml'
   workflow_dispatch:
 
@@ -17,23 +18,21 @@ permissions:
 
 concurrency:
   group: 'pages'
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # plugin tanggal akan tetap jalan (fallback) meski depth=1
-          # kalau mau histori penuh, set fetch-depth: 0
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
 
       - name: Install deps for docs
         run: |
@@ -47,16 +46,26 @@ jobs:
             tabulate
 
       - name: Generate dataset pages (from publish/*.csv)
-        run: python scripts/build_docs.py
+        run: |
+          if [ -f scripts/build_docs.py ]; then
+            python scripts/build_docs.py
+          else
+            echo "scripts/build_docs.py not found — skipping."
+          fi
+
+      - name: Build advanced visuals
+        run: |
+          if [ -f scripts/build_viz_advanced.py ]; then
+            python scripts/build_viz_advanced.py
+          else
+            echo "scripts/build_viz_advanced.py not found — skipping."
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Build case studies
-        run: python scripts/build_case_studies.py
-
-      - name: Build with MkDocs
-        run: mkdocs build --site-dir ./site
+      - name: Build with MkDocs (strict)
+        run: mkdocs build --strict --site-dir ./site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -69,6 +78,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

@@ -19,6 +19,9 @@ plugins:
       enable_creation_date: false
       locale: id
 
+extra_css:
+  - assets/styles.css
+
 markdown_extensions:
   - admonition
   - tables
@@ -39,3 +42,4 @@ nav:
   - Quality Report: quality_report.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
+      - Visual Insights (Executive): case_studies/visual_insights.md
