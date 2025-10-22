@@ -6,8 +6,7 @@ on:
     paths:
       - 'publish/**'
       - 'docs/**'
-      - 'scripts/build_docs.py'
-      - 'scripts/build_viz_advanced.py'
+      - 'scripts/*.py'
       - 'mkdocs.yml'
   workflow_dispatch:
 
@@ -37,29 +36,19 @@ jobs:
       - name: Install deps for docs
         run: |
           python -m pip install -U pip
-          pip install \
-            mkdocs \
-            mkdocs-material \
-            mkdocs-git-revision-date-localized-plugin \
-            pandas \
-            matplotlib \
-            tabulate
+          pip install mkdocs mkdocs-material mkdocs-git-revision-date-localized-plugin pandas matplotlib tabulate
 
       - name: Generate dataset pages (from publish/*.csv)
         run: |
-          if [ -f scripts/build_docs.py ]; then
-            python scripts/build_docs.py
-          else
-            echo "scripts/build_docs.py not found — skipping."
-          fi
+          if [ -f scripts/build_docs.py ]; then python scripts/build_docs.py; else echo "skip build_docs.py"; fi
 
       - name: Build advanced visuals
         run: |
-          if [ -f scripts/build_viz_advanced.py ]; then
-            python scripts/build_viz_advanced.py
-          else
-            echo "scripts/build_viz_advanced.py not found — skipping."
-          fi
+          if [ -f scripts/build_viz_advanced.py ]; then python scripts/build_viz_advanced.py; else echo "skip build_viz_advanced.py"; fi
+
+      - name: Build extras (geojson, sankey, explorer, downloads)
+        run: |
+          python scripts/build_extras.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -78,7 +67,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

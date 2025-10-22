@@ -40,6 +40,10 @@ nav:
           - Top OD Pairs: pages/top_od_pairs.md
   - Data Dictionary: data_dictionary.md
   - Quality Report: quality_report.md
+  - Explorer: explorer.md
+  - Downloads: downloads.md
   - Case Studies:
       - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
       - Visual Insights (Executive): case_studies/visual_insights.md
+      - Network Map: case_studies/network_map.md
+      - Route Flow (Sankey): case_studies/route_flow.md

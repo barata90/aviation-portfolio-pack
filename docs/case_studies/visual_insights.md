@@ -9,22 +9,14 @@
 <div id="ops_plot" style="height:420px;"></div>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script>
-/* Resolve base path for GitHub Pages project (e.g. /aviation-portfolio-pack/) or root (/) */
 function siteRoot(){
   const parts = location.pathname.split('/').filter(Boolean);
-  // project pages: [/REPO/...]; user/Custom domain: []
   return parts.length ? '/' + parts[0] + '/' : '/';
 }
 function loadJSON(name){ return fetch(siteRoot() + 'assets/' + name).then(r => r.json()); }
-
-/* Draw interactive chart */
 loadJSON('ops_delay_plotly.json')
   .then(fig => Plotly.newPlot('ops_plot', fig.data, fig.layout, {displayModeBar:false, responsive:true}))
-  .catch(err => {
-    const d = document.getElementById('ops_plot');
-    d.innerHTML = "<em>Interactive plot failed to load.</em>";
-    console.error(err);
-  });
+  .catch(err => { document.getElementById('ops_plot').innerHTML = "<em>Interactive plot failed to load.</em>"; console.error(err); });
 </script>
 
 ## KPI Ringkas
