@@ -1,18 +1,8 @@
 #!/usr/bin/env python3
-"""
-Safely repair mkdocs.yml:
-- Parse YAML
-- Ensure extra_javascript is a list containing 'assets/site_hooks.js'
-- Write back in a clean, valid format (preserving key order)
-"""
 from __future__ import annotations
 from pathlib import Path
 import sys
-
-try:
-    import yaml  # PyYAML (installed via mkdocs deps)
-except Exception:
-    sys.exit("PyYAML not found. Ensure mkdocs is installed before running this repair.")
+import yaml
 
 MKDOCS = Path("mkdocs.yml")
 if not MKDOCS.exists():

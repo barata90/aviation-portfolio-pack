@@ -1,0 +1,12 @@
+{
+  "columns": [
+    "iata",
+    "icao",
+    "airport_name",
+    "city",
+    "country",
+    "lat",
+    "lon",
+    "tz"
+  ]
+}

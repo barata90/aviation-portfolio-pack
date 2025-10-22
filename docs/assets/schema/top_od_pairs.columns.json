@@ -1,0 +1,7 @@
+{
+  "columns": [
+    "src_iata",
+    "dst_iata",
+    "num_routes"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "columns": [
+    "iata",
+    "deg_out",
+    "deg_in",
+    "deg_total"
+  ]
+}

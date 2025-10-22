@@ -73,6 +73,21 @@ jobs:
           fi
 
       - name: Build datasets index (docs/assets/datasets.json)
+
+      - name: Repair mkdocs.yml (YAML + extra_javascript)
+        run: |
+          python scripts/repair_mkdocs_yaml.py
+
+
+      - name: Repair mkdocs.yml (YAML + extra_javascript)
+        run: |
+          python scripts/repair_mkdocs_yaml.py
+
+
+      - name: Repair mkdocs.yml (YAML + extra_javascript)
+        run: |
+          python scripts/repair_mkdocs_yaml.py
+
         run: |
           python scripts/build_datasets_index.py
 

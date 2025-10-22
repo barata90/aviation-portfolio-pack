@@ -1,1 +1,78 @@
-[{"file": "airport_degree.csv", "size": 37280, "md5": "fe76e2292804aba638d7aa9e8611b9c7", "columns": ["iata", "deg_out", "deg_in", "deg_total"]}, {"file": "dim_airport_clean.csv", "size": 586798, "md5": "68837d643bb73df2392284faced0a73f", "columns": ["iata", "icao", "airport_name", "city", "country", "lat", "lon", "tz"]}, {"file": "euro_atfm_by_location.csv", "size": 531, "md5": "4e9c242a09c4cc7f853614b3c93dcbdf", "columns": ["location", "delay_minutes"]}, {"file": "euro_atfm_timeseries.csv", "size": 1107, "md5": "4846e12e633399f75c8fc33c296b8475", "columns": ["period_start", "delay_minutes"]}, {"file": "route_counts.csv", "size": 376048, "md5": "b430349b641923e213abcd13b1239975", "columns": ["src_iata", "dst_iata", "num_routes"]}, {"file": "top_od_pairs.csv", "size": 1098, "md5": "1988bd2527f3dc836645137a39754298", "columns": ["src_iata", "dst_iata", "num_routes"]}]
+[
+  {
+    "name": "airport_degree.csv",
+    "path": "publish/airport_degree.csv",
+    "columns": [
+      "iata",
+      "deg_out",
+      "deg_in",
+      "deg_total"
+    ],
+    "row_count": 3425,
+    "bytes": 37280,
+    "last_modified": 1760997580
+  },
+  {
+    "name": "dim_airport_clean.csv",
+    "path": "publish/dim_airport_clean.csv",
+    "columns": [
+      "iata",
+      "icao",
+      "airport_name",
+      "city",
+      "country",
+      "lat",
+      "lon",
+      "tz"
+    ],
+    "row_count": 6072,
+    "bytes": 586798,
+    "last_modified": 1760997580
+  },
+  {
+    "name": "euro_atfm_by_location.csv",
+    "path": "publish/euro_atfm_by_location.csv",
+    "columns": [
+      "location",
+      "delay_minutes"
+    ],
+    "row_count": 28,
+    "bytes": 531,
+    "last_modified": 1760997580
+  },
+  {
+    "name": "euro_atfm_timeseries.csv",
+    "path": "publish/euro_atfm_timeseries.csv",
+    "columns": [
+      "period_start",
+      "delay_minutes"
+    ],
+    "row_count": 72,
+    "bytes": 1107,
+    "last_modified": 1760997580
+  },
+  {
+    "name": "route_counts.csv",
+    "path": "publish/route_counts.csv",
+    "columns": [
+      "src_iata",
+      "dst_iata",
+      "num_routes"
+    ],
+    "row_count": 37595,
+    "bytes": 376048,
+    "last_modified": 1760997580
+  },
+  {
+    "name": "top_od_pairs.csv",
+    "path": "publish/top_od_pairs.csv",
+    "columns": [
+      "src_iata",
+      "dst_iata",
+      "num_routes"
+    ],
+    "row_count": 100,
+    "bytes": 1098,
+    "last_modified": 1760997580
+  }
+]
