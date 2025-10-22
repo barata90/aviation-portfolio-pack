@@ -1,28 +1,34 @@
 # Visual Insights — Executive Demo
 
-> Halaman ini menampilkan highlight visual yang langsung “bicara” ke use case Emirates.
+> Highlights that speak directly to the Emirates use case.
 
-## Ops Delay — 24 Bulan (Anomali & Moving Average)
+## Ops Delay — Last 24 Months (Anomalies & Moving Average)
 ![ATFM 24m](../assets/ops_delay_24m_advanced.png)
 
-### Interaktif (zoom/hover)
+### Interactive (zoom/hover)
 <div id="ops_plot" style="height:420px;"></div>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script>
+
 function siteRoot(){
   const parts = location.pathname.split('/').filter(Boolean);
   return parts.length ? '/' + parts[0] + '/' : '/';
 }
-function loadJSON(name){ return fetch(siteRoot() + 'assets/' + name).then(r => r.json()); }
-loadJSON('ops_delay_plotly.json')
+function bust(u){
+  const v = Date.now(); // cache-buster to avoid stale JSON/CSV
+  return u + (u.includes('?') ? '&' : '?') + 'v=' + v;
+}
+
+fetch(bust(siteRoot() + 'assets/ops_delay_plotly.json'))
+  .then(r => r.json())
   .then(fig => Plotly.newPlot('ops_plot', fig.data, fig.layout, {displayModeBar:false, responsive:true}))
   .catch(err => { document.getElementById('ops_plot').innerHTML = "<em>Interactive plot failed to load.</em>"; console.error(err); });
 </script>
 
-## KPI Ringkas
+## KPI Snapshot
 <div id="kpi_mount"></div>
 <script>
-loadJSON('ops_delay_kpis.json').then(k=>{
+fetch(bust(siteRoot() + 'assets/ops_delay_kpis.json')).then(r=>r.json()).then(k=>{
   const root = document.getElementById('kpi_mount');
   const fmt = n => (n==null)?'—':Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(n);
   const pct = n => (n==null)?'—':(n>=0?'+':'')+n.toFixed(1)+'%';
@@ -44,6 +50,6 @@ loadJSON('ops_delay_kpis.json').then(k=>{
 
 ---
 
-### Navigasi dataset
+### Dataset navigation
 - [Euro ATFM Timeseries](../pages/euro_atfm_timeseries.md) · [By Location](../pages/euro_atfm_by_location.md)  
 - [Airport Degree](../pages/airport_degree.md) · [Top OD Pairs](../pages/top_od_pairs.md)

@@ -7,52 +7,47 @@
 
 <script>
 (function(){
-  function siteRoot(){
-    const parts = location.pathname.split('/').filter(Boolean);
-    return parts.length ? '/' + parts[0] + '/' : '/';
-  }
+  
+function siteRoot(){
+  const parts = location.pathname.split('/').filter(Boolean);
+  return parts.length ? '/' + parts[0] + '/' : '/';
+}
+function bust(u){
+  const v = Date.now(); // cache-buster to avoid stale JSON/CSV
+  return u + (u.includes('?') ? '&' : '?') + 'v=' + v;
+}
+
   function init(){
-    if (typeof L === 'undefined'){ return setTimeout(init, 80); }
+    if (typeof L === 'undefined') return setTimeout(init, 80);
     const map = L.map('map');
     map.setView([25.25, 55.30], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom: 8, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 8, attribution: '&copy; OpenStreetMap' }).addTo(map);
     setTimeout(()=>map.invalidateSize(), 150);
 
-    const url = siteRoot() + 'assets/airports.geojson';
-    fetch(url).then(r=>{
-      if(!r.ok) throw new Error('HTTP '+r.status+' for '+url);
-      return r.json();
-    }).then(geo=>{
-      if(!geo.features || !geo.features.length){
-        L.marker([25.252,55.364]).addTo(map).bindPopup('No airport features found.'); 
-        return;
-      }
-      const layer = L.geoJSON(geo, {
-        pointToLayer: (feat, latlng) => {
-          const deg = (+feat.properties.deg_total) || 0;
-          const r = Math.max(3, Math.sqrt(deg)); // sqrt scale
-          return L.circleMarker(latlng, {
-            radius: r, weight: 1, color: '#1565c0', fillColor: '#42a5f5', fillOpacity: 0.6
-          });
-        },
-        onEachFeature: (feat, l) => {
-          const p = feat.properties || {};
-          l.bindPopup(`<b>${p.iata || ''} — ${p.name || ''}</b><br/>
-            ${p.city || ''}, ${p.country || ''}<br/>
-            deg_total: <b>${p.deg_total || 0}</b>`);
+    const url = bust(siteRoot() + 'assets/airports.geojson');
+    fetch(url).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(geo=>{
+        if(!geo.features || !geo.features.length){
+          L.marker([25.252,55.364]).addTo(map).bindPopup('airports.geojson is empty.');
+          return;
         }
-      }).addTo(map);
-      try { map.fitBounds(layer.getBounds(), {padding:[20,20]}); } catch(e){}
-    }).catch(err=>{
-      console.error('airports.geojson error:', err);
-      L.marker([25.252,55.364]).addTo(map).bindPopup('airports.geojson tidak ditemukan / kosong.');
-    });
+        const layer = L.geoJSON(geo, {
+          pointToLayer: (feat, latlng) => {
+            const deg = (+feat.properties.deg_total)||0;
+            const r = Math.max(3, Math.sqrt(deg));
+            return L.circleMarker(latlng, { radius:r, weight:1, color:'#1565c0', fillColor:'#42a5f5', fillOpacity:0.6 });
+          },
+          onEachFeature: (feat, l) => {
+            const p = feat.properties||{};
+            l.bindPopup(`<b>${p.iata||''} — ${p.name||''}</b><br/>${p.city||''}, ${p.country||''}<br/>deg_total: <b>${p.deg_total||0}</b>`);
+          }
+        }).addTo(map);
+        try { map.fitBounds(layer.getBounds(), {padding:[20,20]}); } catch(e) {}
+      })
+      .catch(err=>{ console.error('airports.geojson error:',err); L.marker([25.252,55.364]).addTo(map).bindPopup('airports.geojson not found.'); });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 
-> Bubble size merepresentasikan **deg_total** (konektivitas). Klik marker untuk detail bandara.
+> Bubble size represents **deg_total** (connectivity). Click a marker for airport details.

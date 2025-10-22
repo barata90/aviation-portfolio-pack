@@ -1,6 +1,6 @@
 # Data Explorer — Publish CSV
 
-Pilih dataset dan jelajahi langsung (search/sort/paging).
+Pick a dataset and explore (search / sort / paging).
 
 <select id="sel" style="margin:8px 0;"></select>
 <div id="tbl_mount"><table id="tbl" class="display" width="100%"></table></div>
@@ -13,17 +13,23 @@ Pilih dataset dan jelajahi langsung (search/sort/paging).
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <script>
+
 function siteRoot(){
   const parts = location.pathname.split('/').filter(Boolean);
   return parts.length ? '/' + parts[0] + '/' : '/';
 }
-const datasetsUrl = siteRoot() + 'assets/datasets.json';
+function bust(u){
+  const v = Date.now(); // cache-buster to avoid stale JSON/CSV
+  return u + (u.includes('?') ? '&' : '?') + 'v=' + v;
+}
+
+const datasetsUrl = bust(siteRoot() + 'assets/datasets.json');
 const publishBase = siteRoot() + 'publish/';
 
 function toArrayData(rows, fields){
   const out = [];
   for (const r of rows){
-    if (Object.values(r).every(v => v === null || v === "" || typeof v === "undefined")) continue; // skip baris kosong
+    if (Object.values(r).every(v => v === null || v === "" || typeof v === "undefined")) continue;
     out.push(fields.map(f => (r[f] ?? "")));
   }
   return out;
@@ -35,8 +41,8 @@ function uniqueFields(fields){
 
 function load(fname){
   const mount = document.getElementById('tbl_mount');
-  mount.innerHTML = '<table id="tbl" class="display" width="100%"></table>'; // recreate table
-  const url = publishBase + fname;
+  mount.innerHTML = '<table id="tbl" class="display" width="100%"></table>';
+  const url = bust(publishBase + fname);
 
   Papa.parse(url, {
     download: true, header: true, dynamicTyping: false, skipEmptyLines: "greedy",
@@ -47,11 +53,10 @@ function load(fname){
       const columns = fields.map(t => ({ title: t }));
 
       $('#tbl').DataTable({
-        data, columns,
-        destroy: true, processing: true, deferRender: true, autoWidth: false,
+        data, columns, destroy: true, processing: true, deferRender: true, autoWidth: false,
         pageLength: 25, lengthMenu: [25,50,100,250,1000],
         scrollX: true,
-        scroller: data.length > 1000,            // virtual scroll utk tabel besar
+        scroller: data.length > 1000,
         scrollY: data.length > 1000 ? '60vh' : '',
         orderClasses: false, stateSave: true
       });
@@ -62,7 +67,7 @@ function load(fname){
 
 fetch(datasetsUrl).then(r=>r.json()).then(list=>{
   const sel = document.getElementById('sel');
-  if (!list.length) { sel.outerHTML = "<em>publish/ kosong.</em>"; return; }
+  if (!list.length) { sel.outerHTML = "<em>publish/ is empty.</em>"; return; }
   for (const d of list){
     const opt = document.createElement('option');
     opt.value = d.file; opt.textContent = `${d.file}  (${(d.size/1024).toFixed(1)} KB)`;

@@ -5,6 +5,7 @@ repo_name: barata90/aviation-portfolio-pack
 
 theme:
   name: material
+  language: en
   features:
     - navigation.instant
     - navigation.tracking
@@ -17,7 +18,7 @@ plugins:
       fallback_to_build_date: true
       type: date
       enable_creation_date: false
-      locale: id
+      locale: en
 
 extra_css:
   - assets/styles.css
@@ -30,8 +31,8 @@ markdown_extensions:
 
 nav:
   - Aviation Portfolio Pack:
-      - Navigasi cepat: index.md
-      - Halaman dataset:
+      - Quick Navigation: index.md
+      - Datasets:
           - Airport Degree: pages/airport_degree.md
           - Dim Airport Clean: pages/dim_airport_clean.md
           - Euro ATFM By Location: pages/euro_atfm_by_location.md
