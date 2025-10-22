@@ -11,12 +11,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      has_secrets: ${{ steps.eval.outputs.has_secrets }}
+    steps:
+      - id: eval
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.SNOWFLAKE_ACCOUNT }}" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Announce
+        run: |
+          echo "Snowflake secrets present? -> ${{ steps.eval.outputs.has_secrets }}"
+          if [ "${{ steps.eval.outputs.has_secrets }}" != "true" ]; then
+            echo "No Snowflake secrets configured; skipping load job."
+          fi
+
   load:
-    # Kalau tidak ada secret SNOWFLAKE_ACCOUNT, job otomatis di-skip (bukan fail)
-    if: ${{ secrets.SNOWFLAKE_ACCOUNT != '' }}
+    needs: precheck
+    if: needs.precheck.outputs.has_secrets == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - uses: actions/checkout@v4
 
