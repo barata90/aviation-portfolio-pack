@@ -64,6 +64,10 @@ jobs:
           mkdir -p docs/publish
           cp -a publish/. docs/publish/ || true
 
+      - name: Build ops forecast
+        run: |
+          python scripts/build_ops_forecast.py || true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
