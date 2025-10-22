@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
+"""
+Generate docs/assets/datasets.json enumerating exactly the CSVs in publish/.
+Includes columns (from header), row_count, file size, last_modified.
+Also writes per-CSV schema under docs/assets/schema/<name>.columns.json.
+"""
 from __future__ import annotations
-import os, json, csv
+import json, csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +44,7 @@ def main():
         st = csv_path.stat()
         items.append({
             "name": csv_path.name,
-            "path": f"/publish/{csv_path.name}",
+            "path": f"publish/{csv_path.name}",
             "columns": cols,
             "row_count": rc,
             "bytes": st.st_size,
