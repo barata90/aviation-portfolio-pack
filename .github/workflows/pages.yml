@@ -1,12 +1,9 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 name: Deploy MkDocs to GitHub Pages
 
-on:
+'on':
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - 'docs/**'
       - 'publish/**'
@@ -55,20 +52,12 @@ jobs:
       - name: Verify Python env (3.12 only)
         run: |
           python -V
-<<<<<<< HEAD
-          python - << 'PY'
-=======
-          python - << 'PYIN'
->>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
+          python - <<'PY'
           import sys
-          assert sys.version_info[:2] == (3,12), sys.version
+          assert sys.version_info[:2] == (3, 12), sys.version
           import pandas, numpy, matplotlib, duckdb, tabulate
           print("Python 3.12 & deps OK")
-<<<<<<< HEAD
           PY
-=======
-          PYIN
->>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 
       - name: Ensure asset folders
         run: |
@@ -129,9 +118,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-<<<<<<< HEAD
-=======
-<PASTE_PAGES_YML>
->>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
-=======
->>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
