@@ -1,52 +1,54 @@
 #!/usr/bin/env python3
-"""
-Create small placeholder assets referenced by docs so MkDocs --strict won't fail.
-Only creates if missing.
-"""
 from __future__ import annotations
 from pathlib import Path
+import base64
 import json
 
 ROOT = Path("docs")
 ASSETS = ROOT / "assets"
 API = ROOT / "api"
 
-def write_png(path: Path):
+PNG_MINI = base64.b64decode(
+    # 1x1 PNG transparan
+    b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHWgKf5Q8cTQAAAABJRU5ErkJggg=='
+)
+
+def ensure_file(path: Path, data: bytes | str):
     path.parent.mkdir(parents=True, exist_ok=True)
-    # 1x1 transparent PNG
-    png = bytes.fromhex(
-        "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
-        "0000000A49444154789C6360000002000100FFFF03000006000557BF2A00000000"
-        "49454E44AE426082"
-    )
-    path.write_bytes(png)
+    if isinstance(data, str):
+        if not path.exists():
+            path.write_text(data, encoding="utf-8")
+    else:
+        if not path.exists():
+            path.write_bytes(data)
 
-def main():
-    # downloads.md expects these:
-    (ASSETS / "hub_rank.csv").parent.mkdir(parents=True, exist_ok=True)
-    if not (ASSETS / "hub_rank.csv").exists():
-        (ASSETS / "hub_rank.csv").write_text("hub,score\nDXB,100\n", encoding="utf-8")
-        print("[created] assets/hub_rank.csv")
+def main() -> int:
+    # CSV placeholder (download page)
+    ensure_file(ASSETS / "hub_rank.csv", "airport,score\nDXB,100\nLHR,95\nSIN,93\n")
 
+    # API placeholder json (download page)
     API.mkdir(parents=True, exist_ok=True)
     if not (API / "euro_atfm_timeseries_last24.json").exists():
         (API / "euro_atfm_timeseries_last24.json").write_text(
-            json.dumps({"status":"placeholder","note":"replace with real export if available","series":[]}, indent=2),
-            encoding="utf-8"
+            json.dumps({"status":"placeholder","series":[]}, indent=2), encoding="utf-8"
         )
-        print("[created] api/euro_atfm_timeseries_last24.json")
 
-    # visual_insights.md & pages/airport_degree.md expect images:
-    for p in [
-        ASSETS / "ops_delay_24m_advanced.png",
-        ASSETS / "ops_delay_top_locations_smallmultiples.png",
-        ASSETS / "network_degree_top20.png",
-        ASSETS / "airport_degree" / "top15_degree.png",
-        ASSETS / "airport_degree" / "degree_hist.png",
+    # Images used by case studies (prevent strict warnings)
+    for name in [
+        "ops_delay_24m_advanced.png",
+        "ops_delay_top_locations_smallmultiples.png",
+        "network_degree_top20.png",
     ]:
-        if not p.exists():
-            write_png(p)
-            print(f"[created] {p.relative_to(ROOT)}")
+        ensure_file(ASSETS / name, PNG_MINI)
+
+    # If any “pages/airport_degree.md” references images under assets/airport_degree/…
+    # make the folder and tiny pngs as well (harmless if unused).
+    sub = ASSETS / "airport_degree"
+    for n in ["top15_degree.png", "degree_hist.png"]:
+        ensure_file(sub / n, PNG_MINI)
+
+    print("Placeholder assets ensured.")
+    return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
