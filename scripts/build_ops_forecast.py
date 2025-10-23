@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 #!/usr/bin/env python3
 """
 Build Ops Forecast JSON for the site.
@@ -120,6 +123,9 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+<<<<<<< HEAD
 =======
 <PASTE_OPS_FORECAST_PY>
 >>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

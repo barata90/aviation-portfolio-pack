@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 #!/usr/bin/env python3
 """
 Build dataset pages (Markdown) and static plots for MkDocs.
@@ -114,7 +117,11 @@ def _markdown_table(df: pd.DataFrame, max_rows: int = 2000, preview_rows: int = 
     total = len(df)
     if total > max_rows:
         df = df.head(preview_rows)
+<<<<<<< HEAD
         note = f"_Showing first {preview_rows} of {total:,} rows._\n\n"
+=======
+        note = f"_Showing first {preview_rows} of {total:,} rows._\\n\\n"
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
     else:
         note = ""
 
@@ -127,11 +134,19 @@ def _markdown_table(df: pd.DataFrame, max_rows: int = 2000, preview_rows: int = 
 
     buf = StringIO()
     cols = [str(c) for c in df2.columns]
+<<<<<<< HEAD
     buf.write("| " + " | ".join(cols) + " |\n")
     buf.write("|" + "|".join(["---"] * len(cols)) + "|\n")
     for _, row in df2.iterrows():
         vals = [str(row[c]).replace("|", r"\|") for c in df2.columns]
         buf.write("| " + " | ".join(vals) + " |\n")
+=======
+    buf.write("| " + " | ".join(cols) + " |\\n")
+    buf.write("|" + "|".join(["---"] * len(cols)) + "|\\n")
+    for _, row in df2.iterrows():
+        vals = [str(row[c]).replace("|", r"\\|") for c in df2.columns]
+        buf.write("| " + " | ".join(vals) + " |\\n")
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
     return note + buf.getvalue()
 
 def _write_schema(csv_path: Path, df: pd.DataFrame) -> None:
@@ -156,6 +171,7 @@ def _write_markdown(csv_path: Path, df: pd.DataFrame, monthly: pd.Series, filter
         title_suffix = f" (Last 24 months: {filtered_monthly.index.min().strftime('%Y-%m')} … {filtered_monthly.index.max().strftime('%Y-%m')})"
 
     out = StringIO()
+<<<<<<< HEAD
     out.write(f"# {stem.replace('_', ' ').title()}{title_suffix}\n\n")
     out.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})  \n")
     out.write(f"**Rows:** {len(df):,}  \n")
@@ -173,6 +189,25 @@ def _write_markdown(csv_path: Path, df: pd.DataFrame, monthly: pd.Series, filter
     out.write("### Preview\n\n")
     out.write(_markdown_table(df))
     out.write("\n")
+=======
+    out.write(f"# {stem.replace('_', ' ').title()}{title_suffix}\\n\\n")
+    out.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})  \\n")
+    out.write(f"**Rows:** {len(df):,}  \\n")
+    out.write(f"**Columns:** {', '.join(map(str, df.columns))}\\n\\n")
+
+    if not filtered_monthly.empty and plot_png.exists():
+        out.write(f"![Time series]({rel_png})\\n\\n")
+
+    out.write("### Schema\\n\\n")
+    out.write("```\\n")
+    for c in df.columns:
+        out.write(f"- {c}: {df[c].dtype}\\n")
+    out.write("```\\n\\n")
+
+    out.write("### Preview\\n\\n")
+    out.write(_markdown_table(df))
+    out.write("\\n")
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 
     md_path.write_text(out.getvalue(), encoding="utf-8")
 
@@ -196,7 +231,11 @@ def process_csv(csv_path: Path) -> None:
                 out_png = PLOTS_DIR / f"{csv_path.stem}_timeseries.png"
                 _save_plot(filtered, out_png)
 
+<<<<<<< HEAD
             # also filter raw df for preview
+=======
+            # filter raw df for preview to last 24 months
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
             max_dt = df[date_col].max()
             if pd.notnull(max_dt):
                 start_dt = pd.Timestamp(max_dt) - pd.DateOffset(months=24)
@@ -219,6 +258,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+<<<<<<< HEAD
 =======
 <PASTE_BUILD_DOCS_PY>
 >>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

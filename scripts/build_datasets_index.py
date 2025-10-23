@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 #!/usr/bin/env python3
 """
 Write docs/assets/datasets.json listing exactly publish/*.csv.
@@ -24,6 +27,9 @@ for p in sorted(PUBLISH.glob("*.csv")):
 
 OUT.write_text(json.dumps({"datasets": datasets}, indent=2), encoding="utf-8")
 print(f"Wrote {OUT} with {len(datasets)} dataset(s).")
+<<<<<<< HEAD
 =======
 <PASTE_DATASETS_INDEX_PY>
 >>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

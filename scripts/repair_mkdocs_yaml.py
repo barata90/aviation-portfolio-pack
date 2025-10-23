@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
 #!/usr/bin/env python3
 """
 Safely repair mkdocs.yml:
@@ -36,6 +39,9 @@ data["extra_javascript"] = ej
 
 MKDOCS.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 print("mkdocs.yml repaired and ensured extra_javascript includes assets/site_hooks.js")
+<<<<<<< HEAD
 =======
 <PASTE_REPAIR_YAML_PY>
 >>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
+=======
+>>>>>>> 52085bf (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
