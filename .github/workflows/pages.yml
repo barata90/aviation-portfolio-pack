@@ -71,6 +71,12 @@ jobs:
       - name: Build datasets index (docs/assets/datasets.json)
         run: python scripts/build_datasets_index.py
 
+      - name: Fix datasets.json hrefs
+        run: python scripts/fix_datasets_json_paths.py
+
+      - name: Create case-study placeholders
+        run: python scripts/create_missing_assets.py
+
       - name: Repair mkdocs.yml (YAML + ensure extra_javascript)
         shell: bash
         run: |
