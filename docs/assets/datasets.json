@@ -1,78 +1,28 @@
-[
-  {
-    "name": "airport_degree.csv",
-    "path": "publish/airport_degree.csv",
-    "columns": [
-      "iata",
-      "deg_out",
-      "deg_in",
-      "deg_total"
-    ],
-    "row_count": 3425,
-    "bytes": 37280,
-    "last_modified": 1760997580
-  },
-  {
-    "name": "dim_airport_clean.csv",
-    "path": "publish/dim_airport_clean.csv",
-    "columns": [
-      "iata",
-      "icao",
-      "airport_name",
-      "city",
-      "country",
-      "lat",
-      "lon",
-      "tz"
-    ],
-    "row_count": 6072,
-    "bytes": 586798,
-    "last_modified": 1760997580
-  },
-  {
-    "name": "euro_atfm_by_location.csv",
-    "path": "publish/euro_atfm_by_location.csv",
-    "columns": [
-      "location",
-      "delay_minutes"
-    ],
-    "row_count": 28,
-    "bytes": 531,
-    "last_modified": 1760997580
-  },
-  {
-    "name": "euro_atfm_timeseries.csv",
-    "path": "publish/euro_atfm_timeseries.csv",
-    "columns": [
-      "period_start",
-      "delay_minutes"
-    ],
-    "row_count": 72,
-    "bytes": 1107,
-    "last_modified": 1760997580
-  },
-  {
-    "name": "route_counts.csv",
-    "path": "publish/route_counts.csv",
-    "columns": [
-      "src_iata",
-      "dst_iata",
-      "num_routes"
-    ],
-    "row_count": 37595,
-    "bytes": 376048,
-    "last_modified": 1760997580
-  },
-  {
-    "name": "top_od_pairs.csv",
-    "path": "publish/top_od_pairs.csv",
-    "columns": [
-      "src_iata",
-      "dst_iata",
-      "num_routes"
-    ],
-    "row_count": 100,
-    "bytes": 1098,
-    "last_modified": 1760997580
-  }
-]
+{
+  "datasets": [
+    {
+      "name": "airport_degree",
+      "path": "publish/airport_degree.csv"
+    },
+    {
+      "name": "dim_airport_clean",
+      "path": "publish/dim_airport_clean.csv"
+    },
+    {
+      "name": "euro_atfm_by_location",
+      "path": "publish/euro_atfm_by_location.csv"
+    },
+    {
+      "name": "euro_atfm_timeseries",
+      "path": "publish/euro_atfm_timeseries.csv"
+    },
+    {
+      "name": "route_counts",
+      "path": "publish/route_counts.csv"
+    },
+    {
+      "name": "top_od_pairs",
+      "path": "publish/top_od_pairs.csv"
+    }
+  ]
+}
