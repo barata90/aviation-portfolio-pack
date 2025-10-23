@@ -1,36 +1,32 @@
 site_name: Aviation Portfolio Pack
 site_description: Analytics & Engineering portfolio (Emirates Data Analytics Specialist)
 site_url: https://barata90.github.io/aviation-portfolio-pack/
-
 theme:
   name: material
   language: en
   features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.indexes
-    - content.code.copy
-    - content.action.edit
-
+  - navigation.instant
+  - navigation.tracking
+  - navigation.indexes
+  - content.code.copy
+  - content.action.edit
 plugins:
-  - search
-  - git-revision-date-localized:
-      enable_creation_date: true
-      type: timeago
-
+- search
+- git-revision-date-localized:
+    enable_creation_date: true
+    type: timeago
 extra_javascript:
-  - assets/site_hooks.js
-
+- assets/site_hooks.js
 markdown_extensions:
-  - admonition
-  - attr_list
-  - def_list
-  - footnotes
-  - md_in_html
-  - toc:
-      permalink: true
-  - pymdownx.details
-  - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
-  - pymdownx.emoji
+- admonition
+- attr_list
+- def_list
+- footnotes
+- md_in_html
+- toc:
+    permalink: true
+- pymdownx.details
+- pymdownx.superfences
+- pymdownx.tabbed:
+    alternate_style: true
+- pymdownx.emoji
