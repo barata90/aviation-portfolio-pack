@@ -27,14 +27,6 @@
 
   function onPageReady() {
     window.dispatchEvent(new CustomEvent("ap:page:ready", { detail: { path: location.pathname }}));
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-
->>>>>>> 72b7894 (Pages CI self-healing; ensure extra_javascript; base_url links; subpath-safe hooks; datasets index relative paths)
-    // Re-init if modules exist
->>>>>>> 11887f1 (fix: normalize mkdocs.yml and site_hooks.js)
     if (typeof window.initSqlLab === "function") window.initSqlLab();
     if (typeof window.initNetworkMap === "function") window.initNetworkMap();
     if (typeof window.initExplorer === "function") window.initExplorer();
