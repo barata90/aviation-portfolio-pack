@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+Safely repair mkdocs.yml:
+- Parse YAML
+- Ensure extra_javascript is a list containing 'assets/site_hooks.js'
+- Write back (preserve order)
+"""
 from __future__ import annotations
 from pathlib import Path
 import sys
