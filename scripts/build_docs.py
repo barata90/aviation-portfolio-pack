@@ -10,9 +10,7 @@ Build dataset pages (Markdown) and static plots for MkDocs.
   * Saves a time-series PNG under docs/assets/plots/
   * Writes a Markdown page in docs/datasets/<name>.md
   * Writes schema JSON in docs/assets/schema/<name>.columns.json
-- For large CSVs, renders a simple Markdown preview (no DataTables JS)
-- Uses {{ base_url }} for asset links (subpath-safe on GitHub Pages)
-- Never fails the workflow: per-file try/except and overall exit 0
+- Uses **relative links** (../publish, ../assets/plots) so MkDocs --strict is happy.
 """
 from __future__ import annotations
 import json
@@ -34,8 +32,6 @@ DATASETS_DIR = DOCS_DIR / "datasets"
 ASSETS_DIR = DOCS_DIR / "assets"
 PLOTS_DIR = ASSETS_DIR / "plots"
 SCHEMA_DIR = ASSETS_DIR / "schema"
-
-BASE_URL = "{{ base_url }}"
 
 DATE_HINTS = (
     "date", "dt", "day", "flight_date", "operating_date",
@@ -146,9 +142,10 @@ def _write_markdown(csv_path: Path, df: pd.DataFrame, monthly: pd.Series, filter
     md_path = DATASETS_DIR / f"{stem}.md"
     md_path.parent.mkdir(parents=True, exist_ok=True)
 
-    rel_csv = f"{BASE_URL}/publish/{csv_path.name}"
+    # NOTE: dataset pages berada di docs/datasets/, jadi relative ke root docs adalah "../"
+    rel_csv = f"../publish/{csv_path.name}"
     plot_png = PLOTS_DIR / f"{stem}_timeseries.png"
-    rel_png = f"{BASE_URL}/assets/plots/{plot_png.name}"
+    rel_png = f"../assets/plots/{plot_png.name}"
 
     title_suffix = ""
     if not filtered_monthly.empty:
