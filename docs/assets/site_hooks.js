@@ -31,7 +31,6 @@
   function onPageReady() {
     // Notify modules to re-init on instant navigation
     window.dispatchEvent(new CustomEvent("ap:page:ready", { detail: { path: location.pathname }}));
-
     // Re-init if modules exist
     if (typeof window.initSqlLab === "function") window.initSqlLab();
     if (typeof window.initNetworkMap === "function") window.initNetworkMap();
