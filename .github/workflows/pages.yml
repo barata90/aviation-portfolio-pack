@@ -1,9 +1,8 @@
 name: Deploy MkDocs to GitHub Pages
 
-'on':
+"on":
   push:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - 'docs/**'
       - 'publish/**'
@@ -37,6 +36,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python deps (builders + MkDocs)
+        shell: bash
         run: |
           python -m pip install -U pip
           pip install --upgrade \
@@ -50,10 +50,11 @@ jobs:
             duckdb
 
       - name: Ensure asset folders
+        shell: bash
         run: |
           mkdir -p docs/assets/plots
           mkdir -p docs/assets/schema
-          mkdir -p docs/assets/airport_degree
+          mkdir -p docs/assets
           mkdir -p docs/publish
           mkdir -p docs/datasets
           mkdir -p docs/api
@@ -68,23 +69,28 @@ jobs:
           fi
 
       - name: Build datasets index (docs/assets/datasets.json)
-        run: |
-          python scripts/build_datasets_index.py
+        run: python scripts/build_datasets_index.py
 
-      - name: Ensure MkDocs extra_javascript hook
+      - name: Repair mkdocs.yml (YAML + ensure extra_javascript)
+        shell: bash
         run: |
+          python scripts/repair_mkdocs_yaml.py
           python scripts/ensure_mkdocs_extra_js.py
 
-      - name: Build dataset pages & visuals
-        run: |
-          python scripts/build_docs.py
+      - name: Normalize case_studies links to datasets
+        run: python scripts/normalize_docs_links.py
 
-      - name: Build Ops Forecast assets
+      - name: Create placeholders for referenced assets (strict-safe)
+        run: python scripts/create_missing_assets.py
+
+      - name: Build dataset pages & visuals
+        run: python scripts/build_docs.py
+
+      - name: Build Ops Forecast assets (never fails)
         env:
           PUBLISH_DIR: publish
           OUTPUT_JSON: docs/assets/ops_forecast.json
-        run: |
-          python scripts/build_ops_forecast.py || true
+        run: python scripts/build_ops_forecast.py || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
