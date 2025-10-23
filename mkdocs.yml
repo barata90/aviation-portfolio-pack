@@ -1,7 +1,6 @@
 site_name: Aviation Portfolio Pack
+site_description: Analytics & Engineering portfolio (Emirates Data Analytics Specialist)
 site_url: https://barata90.github.io/aviation-portfolio-pack/
-repo_url: https://github.com/barata90/aviation-portfolio-pack
-repo_name: barata90/aviation-portfolio-pack
 
 theme:
   name: material
@@ -9,49 +8,33 @@ theme:
   features:
     - navigation.instant
     - navigation.tracking
-    - toc.integrate
+    - navigation.indexes
     - content.code.copy
+    - content.action.edit
 
 plugins:
   - search
   - git-revision-date-localized:
-      fallback_to_build_date: true
-      type: date
-      enable_creation_date: false
-      locale: en
+      enable_creation_date: true
+      type: timeago
 
-extra_css:
-  - assets/styles.css
+# IMPORTANT: relative to docs_dir (no leading slash)
 extra_javascript:
-  - sw-register.js
+  - assets/site_hooks.js
 
 markdown_extensions:
   - admonition
-  - tables
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
   - toc:
       permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji
 
-nav:
-  - Aviation Portfolio Pack:
-      - Quick Navigation: index.md
-      - Datasets:
-          - Airport Degree: pages/airport_degree.md
-          - Dim Airport Clean: pages/dim_airport_clean.md
-          - Euro ATFM By Location: pages/euro_atfm_by_location.md
-          - Euro ATFM Timeseries: pages/euro_atfm_timeseries.md
-          - Route Counts: pages/route_counts.md
-          - Top OD Pairs: pages/top_od_pairs.md
-  - Data Dictionary: data_dictionary.md
-  - Quality Report: quality_report.md
-  - Explorer: explorer.md
-  - SQL Lab: sql_lab.md
-  - Case Studies:
-      - Emirates (Data Analytics Specialist): case_studies/emirates_data_analytics_specialist.md
-      - Visual Insights (Executive): case_studies/visual_insights.md
-      - Network Map: case_studies/network_map.md
-      - Route Flow (Sankey): case_studies/route_flow.md
-      - Scenario Simulator: case_studies/scenario_simulator.md
-      - Hub Ranking: case_studies/hub_rank.md
-  - Developer API: developers/api.md
-  - Downloads: downloads.md
-\n  - Ops Forecast & Incidents: case_studies/ops_forecast.md\n
+# Let MkDocs auto-generate nav from docs/ (keeps current structure)
+# nav:  # (intentionally omitted)
