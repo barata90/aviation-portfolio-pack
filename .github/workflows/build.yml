@@ -1,74 +1,108 @@
-name: Build data dictionary
+name: Deploy MkDocs to GitHub Pages
 
-on:
+'on':
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
+      - 'docs/**'
       - 'publish/**'
-      - 'scripts/make_data_dictionary.py'
+      - 'scripts/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/pages.yml'
+      - 'README.md'
   workflow_dispatch:
-  schedule:
-    - cron: '0 2 * * 1'  # mingguan (opsional)
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: 'dictionary'
+  group: 'pages'
   cancel-in-progress: true
 
 jobs:
-  build-dict:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
 
-      # ⬇️ Step sentinel: cek apakah ada CSV di publish/
-      - name: Detect CSV presence
-        id: csv
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(publish/*.csv)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "has_csv=false" >> "$GITHUB_OUTPUT"
-            echo "No CSV in publish/ → skipping downstream steps."
-          else
-            echo "has_csv=true" >> "$GITHUB_OUTPUT"
-            echo "Found ${#files[@]} CSV(s): ${files[*]}"
-          fi
-
-      - name: Install deps
-        if: steps.csv.outputs.has_csv == 'true'
+      - name: Install Python deps (builders + MkDocs)
         run: |
           python -m pip install -U pip
-          pip install pandas tabulate duckdb
+          pip install --upgrade \
+            mkdocs \
+            mkdocs-material \
+            mkdocs-git-revision-date-localized-plugin \
+            pandas \
+            numpy \
+            matplotlib \
+            tabulate \
+            duckdb
 
-      - name: Rebuild data dictionary
-        if: steps.csv.outputs.has_csv == 'true'
+      - name: Ensure asset folders
         run: |
-          python scripts/make_data_dictionary.py \
-            --csv-dir publish \
-            --out docs/data_dictionary.md
+          mkdir -p docs/assets/plots
+          mkdir -p docs/assets/schema
+          mkdir -p docs/assets/airport_degree
+          mkdir -p docs/publish
+          mkdir -p docs/datasets
+          mkdir -p docs/api
 
-      - name: Commit if changed
-        if: steps.csv.outputs.has_csv == 'true'
+      - name: Mirror publish → docs/publish (static serving)
+        shell: bash
         run: |
-          if ! git diff --quiet docs/data_dictionary.md; then
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add docs/data_dictionary.md
-            git commit -m "docs: update data dictionary (auto)"
-            git push
+          if compgen -G "publish/*.csv" > /dev/null; then
+            rsync -a --delete publish/ docs/publish/
           else
-            echo "No changes."
+            echo "No CSV files under publish/. Keeping docs/publish/ as-is."
           fi
+
+      - name: Build datasets index (docs/assets/datasets.json)
+        run: |
+          python scripts/build_datasets_index.py
+
+      - name: Ensure MkDocs extra_javascript hook
+        run: |
+          python scripts/ensure_mkdocs_extra_js.py
+
+      - name: Build dataset pages & visuals
+        run: |
+          python scripts/build_docs.py
+
+      - name: Build Ops Forecast assets
+        env:
+          PUBLISH_DIR: publish
+          OUTPUT_JSON: docs/assets/ops_forecast.json
+        run: |
+          python scripts/build_ops_forecast.py || true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build MkDocs (strict)
+        run: mkdocs build --strict
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
