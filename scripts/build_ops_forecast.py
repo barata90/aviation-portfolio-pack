@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""
+Build Ops Forecast JSON for the site.
+
+- Scan PUBLISH_DIR for a CSV with a date-like column and a numeric metric.
+- Aggregate monthly, simple linear+seasonal model, robust-Z anomalies,
+  and forecast next 6 months.
+- If no suitable data, write a minimal placeholder JSON (status 200).
+"""
 from __future__ import annotations
 import os, json
 from pathlib import Path
@@ -9,7 +17,6 @@ from datetime import datetime, timezone
 
 PUBLISH_DIR = Path(os.environ.get("PUBLISH_DIR", "publish"))
 OUTPUT_JSON = Path(os.environ.get("OUTPUT_JSON", "docs/assets/ops_forecast.json"))
-
 DATE_HINTS = {"date","dt","day","flight_date","operating_date","op_date","timestamp","ts","period","month","year_month"}
 
 @dataclass
@@ -42,8 +49,7 @@ def _pick_series() -> SeriesPack | None:
             if value_col:
                 y = d.groupby("_m")[value_col].sum(min_count=1)
             else:
-                y = d.groupby("_m").size()
-                y = pd.Series(y, index=y.index)
+                y = d.groupby("_m").size(); y = pd.Series(y, index=y.index)
             y = y.sort_index()
             if len(y) < 6:
                 continue
