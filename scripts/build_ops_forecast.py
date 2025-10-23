@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
 """
 Build Ops Forecast JSON for the site.
@@ -119,3 +120,6 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+=======
+<PASTE_OPS_FORECAST_PY>
+>>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

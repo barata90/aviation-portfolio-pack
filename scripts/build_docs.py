@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
 """
 Build dataset pages (Markdown) and static plots for MkDocs.
@@ -218,3 +219,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+=======
+<PASTE_BUILD_DOCS_PY>
+>>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 name: Deploy MkDocs to GitHub Pages
 
 on:
@@ -117,3 +118,6 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+=======
+<PASTE_PAGES_YML>
+>>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)

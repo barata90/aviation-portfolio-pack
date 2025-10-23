@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* MkDocs Material instant-nav helpers + cache-busting for /assets and /publish */
 (function () {
   function bust(url) {
@@ -39,3 +40,6 @@
     document.addEventListener("DOMContentLoaded", onPageReady);
   }
 })();
+=======
+<PASTE_SITE_HOOKS_JS>
+>>>>>>> 9fd5aca (CI/site hardening: stable pages build; datasets index; Agg backend; 24M filter; instant-nav & cache-bust; mkdocs YAML repair)
