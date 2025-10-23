@@ -39,7 +39,15 @@ jobs:
       - name: Install Python deps (builders + MkDocs)
         run: |
           python -m pip install -U pip
-          pip install --upgrade             mkdocs             mkdocs-material             mkdocs-git-revision-date-localized-plugin             pandas             numpy             matplotlib             tabulate             duckdb
+          pip install --upgrade \
+            mkdocs \
+            mkdocs-material \
+            mkdocs-git-revision-date-localized-plugin \
+            pandas \
+            numpy \
+            matplotlib \
+            tabulate \
+            duckdb
 
       - name: Verify Python env (3.12 only)
         run: |
@@ -55,8 +63,10 @@ jobs:
         run: |
           mkdir -p docs/assets/plots
           mkdir -p docs/assets/schema
+          mkdir -p docs/assets/airport_degree
           mkdir -p docs/publish
           mkdir -p docs/datasets
+          mkdir -p docs/api
 
       - name: Mirror publish → docs/publish (static serving)
         shell: bash
@@ -70,6 +80,14 @@ jobs:
       - name: Build datasets index (docs/assets/datasets.json)
         run: |
           python scripts/build_datasets_index.py
+
+      - name: Normalize internal links (relative paths for /assets & /publish)
+        run: |
+          python scripts/normalize_docs_links.py
+
+      - name: Create placeholder assets (to satisfy referenced links)
+        run: |
+          python scripts/create_missing_assets.py
 
       - name: Repair mkdocs.yml (YAML + extra_javascript)
         run: |
