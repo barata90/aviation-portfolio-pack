@@ -1,204 +1,165 @@
 #!/usr/bin/env python3
-"""
-Build dataset pages (Markdown) and static plots for MkDocs.
+# scripts/build_docs.py
+# Runtime: Python 3.12
+# Deps: pandas, matplotlib
 
-- Scans publish/*.csv
-- For each CSV:
-  * Reads robustly (UTF-8-SIG, low_memory=False)
-  * Detects a date column (by dtype or name hints) and >= 1 numeric column
-  * Aggregates monthly totals, filters to last 24 months for plots/tables
-  * Saves a time-series PNG under docs/assets/plots/
-  * Writes a Markdown page in docs/datasets/<name>.md
-  * Writes schema JSON in docs/assets/schema/<name>.columns.json
-- Uses **relative links** (../publish, ../assets/plots) so MkDocs --strict is happy.
-"""
-from __future__ import annotations
-import json
-from io import StringIO
+import io
 from pathlib import Path
-from typing import List, Optional
+import json
+import re
+import warnings
 
-import numpy as np
-import pandas as pd
-
-# Headless Matplotlib
+# Headless backend for CI
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-DOCS_DIR = Path("docs")
-PUBLISH_DIR = Path("publish")
-DATASETS_DIR = DOCS_DIR / "datasets"
-ASSETS_DIR = DOCS_DIR / "assets"
-PLOTS_DIR = ASSETS_DIR / "plots"
-SCHEMA_DIR = ASSETS_DIR / "schema"
+import pandas as pd
 
-DATE_HINTS = (
-    "date", "dt", "day", "flight_date", "operating_date",
-    "op_date", "timestamp", "ts", "period", "month", "year_month",
-)
+ROOT = Path(__file__).resolve().parents[1]
+PUBLISH_DIR = ROOT / "publish"
+DOCS = ROOT / "docs"
+DATASETS_DIR = DOCS / "datasets"
+PLOTS_DIR = DOCS / "assets" / "plots"
+SCHEMA_DIR = DOCS / "assets" / "schema"
 
-for d in (DATASETS_DIR, PLOTS_DIR, SCHEMA_DIR):
-    d.mkdir(parents=True, exist_ok=True)
+DATASETS_DIR.mkdir(parents=True, exist_ok=True)
+PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+SCHEMA_DIR.mkdir(parents=True, exist_ok=True)
 
 def _read_csv(csv_path: Path) -> pd.DataFrame:
-    return pd.read_csv(csv_path, encoding="utf-8-sig", low_memory=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        df = pd.read_csv(csv_path)
+    return df
 
-def _is_datetime_series(s: pd.Series) -> bool:
-    if pd.api.types.is_datetime64_any_dtype(s):
-        return True
-    try:
-        pd.to_datetime(s.dropna().head(100), errors="raise")
-        return True
-    except Exception:
-        return False
+DATE_CANDIDATES = re.compile(r"(date|day|period|month|dt|timestamp|flight_date|ds)$", re.I)
 
-def _pick_date_column(df: pd.DataFrame) -> Optional[str]:
+def _pick_date_column(df: pd.DataFrame) -> str | None:
+    # 1) by name
     for c in df.columns:
-        if pd.api.types.is_datetime64_any_dtype(df[c]):
+        if DATE_CANDIDATES.search(str(c)):
             return c
-    candidates = [c for c in df.columns if any(h in str(c).lower() for h in DATE_HINTS)]
-    for c in candidates:
-        if _is_datetime_series(df[c]):
-            return c
+    # 2) try parse
     for c in df.columns:
-        if _is_datetime_series(df[c]):
+        s = df[c]
+        try:
+            pd.to_datetime(s.dropna().head(50), errors="raise")
             return c
+        except Exception:
+            pass
     return None
 
-def _numeric_columns(df: pd.DataFrame, exclude: Optional[List[str]] = None) -> List[str]:
+def _numeric_columns(df: pd.DataFrame, exclude=None):
     exclude = set(exclude or [])
     return [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]
 
-def _monthly_series(df: pd.DataFrame, date_col: str, value_cols: List[str]) -> pd.Series:
+def _monthly_series(df: pd.DataFrame, dt_col: str, num_cols):
     d = df.copy()
-    if not pd.api.types.is_datetime64_any_dtype(d[date_col]):
-        d[date_col] = pd.to_datetime(d[date_col], errors="coerce")
-    d = d.dropna(subset=[date_col])
-    if d.empty:
-        return pd.Series(dtype=float)
+    d[dt_col] = pd.to_datetime(d[dt_col], errors="coerce")
+    d = d.dropna(subset=[dt_col]).sort_values(dt_col).set_index(dt_col)
 
-    d["_m"] = d[date_col].dt.to_period("M").dt.to_timestamp()
-    if value_cols:
-        y = d.groupby("_m")[value_cols].sum(min_count=1).sum(axis=1)
+    pref = [x for x in num_cols if re.search(r"(value|count|delay|minutes|flights|passenger|qty|num)$", str(x), re.I)]
+    ycol = pref[0] if pref else (num_cols[0] if num_cols else None)
+    if ycol:
+        s = d[ycol].resample("MS").sum(min_count=1)
     else:
-        y = d.groupby("_m").size()
-        y = pd.Series(y, index=y.index)
-    return y.sort_index()
+        s = d.resample("MS").size().rename("rows")
+    return s
 
 def _last_24_months(s: pd.Series) -> pd.Series:
     if s.empty:
         return s
-    end = s.index.max()
-    start = end - pd.DateOffset(months=24)
-    start = pd.Timestamp(year=start.year, month=start.month, day=1)
-    return s.loc[s.index >= start]
+    last = s.dropna().index.max()
+    if pd.isna(last):
+        return s
+    start = (last.to_period("M") - 23).to_timestamp()
+    return s.loc[start:]
 
-def _save_plot(series: pd.Series, out_png: Path) -> None:
-    if series.empty:
-        return
-    plt.figure(figsize=(8, 3))
-    series.plot(kind="line", marker="o")
-    plt.title("Monthly trend (last 24 months)")
-    plt.tight_layout()
+def _save_plot(series: pd.Series, out_png: Path, title: str):
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(out_png, dpi=150)
+    plt.figure(figsize=(8, 3))
+    series.plot()
+    plt.title(title)
+    plt.xlabel("Month")
+    plt.ylabel(series.name or "value")
+    plt.tight_layout()
+    plt.savefig(out_png)
     plt.close()
 
-def _markdown_table(df: pd.DataFrame, max_rows: int = 2000, preview_rows: int = 50) -> str:
-    total = len(df)
-    if total > max_rows:
-        df = df.head(preview_rows)
-        note = f"_Showing first {preview_rows} of {total:,} rows._\n\n"
-    else:
-        note = ""
+def _markdown_table(df: pd.DataFrame, limit: int = 20) -> str:
+    try:
+        return df.head(limit).to_markdown(index=False)
+    except Exception:
+        return "*(preview unavailable)*"
 
-    df2 = df.copy()
-    for c in df2.columns:
-        if pd.api.types.is_datetime64_any_dtype(df2[c]):
-            df2[c] = pd.to_datetime(df2[c], errors="coerce").dt.strftime("%Y-%m-%d")
-        else:
-            df2[c] = df2[c].astype(str)
+def _write_schema(csv_path: Path, df: pd.DataFrame):
+    schema = [{"name": str(c), "dtype": str(df[c].dtype)} for c in df.columns]
+    (SCHEMA_DIR / f"{csv_path.stem}.columns.json").write_text(
+        json.dumps(schema, indent=2), encoding="utf-8"
+    )
 
-    buf = StringIO()
-    cols = [str(c) for c in df2.columns]
-    buf.write("| " + " | ".join(cols) + " |\n")
-    buf.write("|" + "|".join(["---"] * len(cols)) + "|\n")
-    for _, row in df2.iterrows():
-        vals = [str(row[c]).replace("|", r"\|") for c in df2.columns]
-        buf.write("| " + " | ".join(vals) + " |\n")
-    return note + buf.getvalue()
+def _write_markdown(csv_path: Path, df: pd.DataFrame, monthly: pd.Series, filtered: pd.Series):
+    md_path = DATASETS_DIR / f"{csv_path.stem}.md"
 
-def _write_schema(csv_path: Path, df: pd.DataFrame) -> None:
-    schema = []
-    for c in df.columns:
-        dtype = str(df[c].dtype)
-        schema.append({"name": str(c), "dtype": dtype})
-    out = SCHEMA_DIR / f"{csv_path.stem}.columns.json"
-    out.write_text(json.dumps(schema, indent=2), encoding="utf-8")
-
-def _write_markdown(csv_path: Path, df: pd.DataFrame, monthly: pd.Series, filtered_monthly: pd.Series) -> None:
-    stem = csv_path.stem
-    md_path = DATASETS_DIR / f"{stem}.md"
-    md_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # NOTE: dataset pages berada di docs/datasets/, jadi relative ke root docs adalah "../"
+    # SELALU pakai link relatif dari folder datasets/
     rel_csv = f"../publish/{csv_path.name}"
-    plot_png = PLOTS_DIR / f"{stem}_timeseries.png"
-    rel_png = f"../assets/plots/{plot_png.name}"
+    rel_png = f"../assets/plots/{csv_path.stem}_timeseries.png"
 
-    title_suffix = ""
-    if not filtered_monthly.empty:
-        title_suffix = f" (Last 24 months: {filtered_monthly.index.min().strftime('%Y-%m')} … {filtered_monthly.index.max().strftime('%Y-%m')})"
+    period = ""
+    if not filtered.empty:
+        lo = filtered.index.min().strftime("%Y-%m")
+        hi = filtered.index.max().strftime("%Y-%m")
+        period = f" (Last 24 months: {lo} … {hi})"
 
-    out = StringIO()
-    out.write(f"# {stem.replace('_', ' ').title()}{title_suffix}\n\n")
-    out.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})  \n")
-    out.write(f"**Rows:** {len(df):,}  \n")
-    out.write(f"**Columns:** {', '.join(map(str, df.columns))}\n\n")
+    out = io.StringIO()
+    out.write(f"# {csv_path.stem.replace('_',' ').title()}{period}\n\n")
+    out.write(f"**Source CSV:** [{csv_path.name}]({rel_csv})\n\n")
 
-    if not filtered_monthly.empty and plot_png.exists():
-        out.write(f"![Time series]({rel_png})\n\n")
+    if (PLOTS_DIR / f"{csv_path.stem}_timeseries.png").exists():
+        out.write(f"![trend]({rel_png})\n\n")
 
-    out.write("### Schema\n\n")
-    out.write("```\n")
+    out.write("## Summary\n\n")
+    n_rows_total = len(df)
+    n_cols = len(df.columns)
+    n_rows_24m = int(filtered.dropna().shape[0]) if isinstance(filtered, pd.Series) else n_rows_total
+    out.write(f"- **Rows (preview scope):** {n_rows_24m:,} of total {n_rows_total:,}\n")
+    out.write(f"- **Columns:** {n_cols}\n\n")
+
+    out.write("## Schema\n\n```\n")
     for c in df.columns:
         out.write(f"- {c}: {df[c].dtype}\n")
     out.write("```\n\n")
 
-    out.write("### Preview\n\n")
+    out.write("## Preview\n\n")
     out.write(_markdown_table(df))
     out.write("\n")
 
     md_path.write_text(out.getvalue(), encoding="utf-8")
 
-def process_csv(csv_path: Path) -> None:
+def _process_csv(csv_path: Path) -> None:
     try:
         df = _read_csv(csv_path)
         _write_schema(csv_path, df)
-
-        date_col = _pick_date_column(df)
-        num_cols = _numeric_columns(df, exclude=[date_col] if date_col else None)
+        dt_col = _pick_date_column(df)
+        num_cols = _numeric_columns(df, exclude=[dt_col] if dt_col else None)
 
         monthly = pd.Series(dtype=float)
         filtered = pd.Series(dtype=float)
 
-        if date_col:
-            if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
-                df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-            monthly = _monthly_series(df, date_col, num_cols)
+        if dt_col:
+            if not pd.api.types.is_datetime64_any_dtype(df[dt_col]):
+                df[dt_col] = pd.to_datetime(df[dt_col], errors="coerce")
+            monthly = _monthly_series(df, dt_col, num_cols)
             filtered = _last_24_months(monthly)
             if not filtered.empty:
-                out_png = PLOTS_DIR / f"{csv_path.stem}_timeseries.png"
-                _save_plot(filtered, out_png)
-
-            max_dt = df[date_col].max()
-            if pd.notnull(max_dt):
-                start_dt = pd.Timestamp(max_dt) - pd.DateOffset(months=24)
-                df = df[df[date_col] >= start_dt]
+                _save_plot(filtered, PLOTS_DIR / f"{csv_path.stem}_timeseries.png", title=f"{csv_path.stem} – Monthly")
+            # Batasi preview tabel ke 24 bulan terakhir
+            mx = df[dt_col].max()
+            if pd.notnull(mx):
+                df = df[df[dt_col] >= (pd.Timestamp(mx) - pd.DateOffset(months=24))]
 
         _write_markdown(csv_path, df, monthly, filtered)
-
         print(f"[OK] Built page for {csv_path.name}")
     except Exception as e:
         print(f"[WARN] Skipping {csv_path.name}: {e}")
@@ -209,7 +170,7 @@ def main() -> int:
         print("No CSVs found in publish/ — nothing to build.")
         return 0
     for csv_path in csvs:
-        process_csv(csv_path)
+        _process_csv(csv_path)
     return 0
 
 if __name__ == "__main__":
