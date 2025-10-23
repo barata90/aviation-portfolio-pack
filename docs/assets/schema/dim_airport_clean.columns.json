@@ -1,12 +1,34 @@
-{
-  "columns": [
-    "iata",
-    "icao",
-    "airport_name",
-    "city",
-    "country",
-    "lat",
-    "lon",
-    "tz"
-  ]
-}
+[
+  {
+    "name": "iata",
+    "dtype": "object"
+  },
+  {
+    "name": "icao",
+    "dtype": "object"
+  },
+  {
+    "name": "airport_name",
+    "dtype": "object"
+  },
+  {
+    "name": "city",
+    "dtype": "object"
+  },
+  {
+    "name": "country",
+    "dtype": "object"
+  },
+  {
+    "name": "lat",
+    "dtype": "float64"
+  },
+  {
+    "name": "lon",
+    "dtype": "float64"
+  },
+  {
+    "name": "tz",
+    "dtype": "object"
+  }
+]

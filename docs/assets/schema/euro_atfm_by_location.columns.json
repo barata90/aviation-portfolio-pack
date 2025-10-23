@@ -1,6 +1,10 @@
-{
-  "columns": [
-    "location",
-    "delay_minutes"
-  ]
-}
+[
+  {
+    "name": "location",
+    "dtype": "object"
+  },
+  {
+    "name": "delay_minutes",
+    "dtype": "float64"
+  }
+]

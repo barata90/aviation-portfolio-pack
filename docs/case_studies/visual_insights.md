@@ -51,5 +51,5 @@ fetch(bust(siteRoot() + 'assets/ops_delay_kpis.json')).then(r=>r.json()).then(k=
 ---
 
 ### Dataset navigation
-- [Euro ATFM Timeseries](../pages/euro_atfm_timeseries.md) · [By Location](../pages/euro_atfm_by_location.md)  
-- [Airport Degree](../pages/airport_degree.md) · [Top OD Pairs](../pages/top_od_pairs.md)
+- [Euro ATFM Timeseries](../datasets/euro_atfm_timeseries.md) · [By Location](../datasets/euro_atfm_by_location.md)  
+- [Airport Degree](../datasets/airport_degree.md) · [Top OD Pairs](../datasets/top_od_pairs.md)

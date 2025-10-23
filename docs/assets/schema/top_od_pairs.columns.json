@@ -1,7 +1,14 @@
-{
-  "columns": [
-    "src_iata",
-    "dst_iata",
-    "num_routes"
-  ]
-}
+[
+  {
+    "name": "src_iata",
+    "dtype": "object"
+  },
+  {
+    "name": "dst_iata",
+    "dtype": "object"
+  },
+  {
+    "name": "num_routes",
+    "dtype": "int64"
+  }
+]

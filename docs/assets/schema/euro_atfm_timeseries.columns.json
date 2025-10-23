@@ -1,6 +1,10 @@
-{
-  "columns": [
-    "period_start",
-    "delay_minutes"
-  ]
-}
+[
+  {
+    "name": "period_start",
+    "dtype": "object"
+  },
+  {
+    "name": "delay_minutes",
+    "dtype": "float64"
+  }
+]

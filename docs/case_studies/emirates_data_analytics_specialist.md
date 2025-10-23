@@ -25,10 +25,10 @@
 
 Sumber data: folder `publish/`. Setiap halaman dataset menampilkan **periode data asli** dan **periode tampilan** (default **24 bulan terakhir** bila ada kolom tanggal).
 
-- [Euro ATFM Timeseries](../pages/euro_atfm_timeseries.md) — `period_start`, `delay_minutes`  
-- [Euro ATFM By Location](../pages/euro_atfm_by_location.md) — `location`, `delay_minutes`  
-- [Airport Degree](../pages/airport_degree.md) — `deg_out`, `deg_in`, `deg_total`  
-- [Top OD Pairs](../pages/top_od_pairs.md) — `src_iata`, `dst_iata`, `num_routes`
+- [Euro ATFM Timeseries](../datasets/euro_atfm_timeseries.md) — `period_start`, `delay_minutes`  
+- [Euro ATFM By Location](../datasets/euro_atfm_by_location.md) — `location`, `delay_minutes`  
+- [Airport Degree](../datasets/airport_degree.md) — `deg_out`, `deg_in`, `deg_total`  
+- [Top OD Pairs](../datasets/top_od_pairs.md) — `src_iata`, `dst_iata`, `num_routes`
 
 > Penyaringan 24 bulan dihitung relatif ke **tanggal maksimum di data**, bukan “hari ini”, sehingga konsisten walau dataset statis.
 
@@ -52,14 +52,14 @@ CSV (publish/) ──┬──▶ Data Quality (report → docs/quality_report.m
 ### 4.1 Ops Delay (EUROCONTROL)
 - **KPI**: `Total Delay 12M`, `YoY %`, `MoM %`, `Top 10 Locations`.
 - **Navigasi cepat**:
-  - Tren 24 bulan: buka [Euro ATFM Timeseries](../pages/euro_atfm_timeseries.md)
-  - Peringkat lokasi: buka [Euro ATFM By Location](../pages/euro_atfm_by_location.md)
+  - Tren 24 bulan: buka [Euro ATFM Timeseries](../datasets/euro_atfm_timeseries.md)
+  - Peringkat lokasi: buka [Euro ATFM By Location](../datasets/euro_atfm_by_location.md)
 
 ### 4.2 Network Strength (OpenFlights)
 - **KPI**: `Top-20 Airport Degree`, `Top OD pairs`.
 - **Navigasi cepat**:
-  - Degree: [Airport Degree](../pages/airport_degree.md)
-  - OD: [Top OD Pairs](../pages/top_od_pairs.md)
+  - Degree: [Airport Degree](../datasets/airport_degree.md)
+  - OD: [Top OD Pairs](../datasets/top_od_pairs.md)
 
 ---
 

@@ -1,8 +1,18 @@
-{
-  "columns": [
-    "iata",
-    "deg_out",
-    "deg_in",
-    "deg_total"
-  ]
-}
+[
+  {
+    "name": "iata",
+    "dtype": "object"
+  },
+  {
+    "name": "deg_out",
+    "dtype": "int64"
+  },
+  {
+    "name": "deg_in",
+    "dtype": "int64"
+  },
+  {
+    "name": "deg_total",
+    "dtype": "int64"
+  }
+]
