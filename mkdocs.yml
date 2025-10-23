@@ -18,6 +18,7 @@ plugins:
     enable_git_follow: false
 extra_javascript:
 - assets/site_hooks.js
+- https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2
 markdown_extensions:
 - admonition
 - attr_list
