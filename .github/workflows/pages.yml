@@ -63,8 +63,10 @@ jobs:
           mkdir -p docs/assets/plots
           mkdir -p docs/assets/schema
           mkdir -p docs/publish
+          mkdir -p docs/datasets
 
       - name: Mirror publish → docs/publish (static serving)
+        shell: bash
         run: |
           if compgen -G "publish/*.csv" > /dev/null; then
             rsync -a --delete publish/ docs/publish/
