@@ -114,7 +114,8 @@ jobs:
           OUTPUT_JSON: docs/assets/ops_forecast.json
         run: python scripts/build_ops_forecast.py || true
 
-      - name: Guard: ops_forecast.json must exist
+      # <-- Perbaikan di bawah: nama step TANPA ":" -->
+      - name: Guard ops_forecast.json must exist
         shell: bash
         run: |
           if [ ! -f docs/assets/ops_forecast.json ]; then
