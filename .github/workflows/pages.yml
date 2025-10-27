@@ -2,14 +2,14 @@ name: Deploy MkDocs to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
     paths:
-      - 'docs/**'
-      - 'publish/**'
-      - 'scripts/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/pages.yml'
-      - 'README.md'
+      - "docs/**"
+      - "publish/**"
+      - "scripts/**"
+      - "mkdocs.yml"
+      - ".github/workflows/pages.yml"
+      - "README.md"
   workflow_dispatch:
 
 permissions:
@@ -33,47 +33,42 @@ jobs:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
-      - name: Install Python deps (builders + MkDocs)
-        shell: bash
+      - name: Install Python deps
         run: |
           python -m pip install -U pip
-          pip install --upgrade \
-            mkdocs mkdocs-material mkdocs-git-revision-date-localized-plugin \
-            pandas numpy matplotlib tabulate duckdb
+          pip install mkdocs mkdocs-material mkdocs-git-revision-date-localized-plugin pandas numpy matplotlib tabulate duckdb
 
-      - name: Ensure asset folders
-        shell: bash
+      - name: Ensure folders
         run: |
           mkdir -p docs/assets/plots docs/assets/schema docs/assets
           mkdir -p docs/publish docs/datasets docs/api
+          mkdir -p publish
 
-      # Untuk serving statik dari /docs/publish
-      - name: Mirror publish → docs/publish (static serving)
-        shell: bash
+      # Static serving: if repo has /publish/*.csv, mirror to /docs/publish
+      - name: Mirror publish to docs/publish (static)
         run: |
-          shopt -s nullglob
-          files=(publish/*.csv)
-          if (( ${#files[@]} )); then
-            rsync -a --delete publish/ docs/publish/
+          if ls publish/*.csv >/dev/null 2>&1; then
+            mkdir -p docs/publish
+            cp -a publish/. docs/publish/
+            echo "Mirrored publish -> docs/publish"
           else
-            echo "No CSV files under publish/. Keeping docs/publish/ as-is."
+            echo "No CSV under publish/"
           fi
 
-      # Untuk builder yang membaca dari /publish (root)
-      - name: Mirror docs/publish → publish (for builders)
-        shell: bash
+      # Builders read from /publish; mirror docs/publish there
+      - name: Mirror docs/publish to publish (for builders)
         run: |
           if [ -d docs/publish ]; then
             mkdir -p publish
-            rsync -a docs/publish/ publish/
-            echo "Mirrored docs/publish → publish/"
+            cp -a docs/publish/. publish/
+            echo "Mirrored docs/publish -> publish"
           else
-            echo "docs/publish not found; skipping mirror"
+            echo "docs/publish not found; skipping"
           fi
 
-      - name: Build datasets index (docs/assets/datasets.json)
+      - name: Build datasets index
         run: python scripts/build_datasets_index.py
 
       - name: Fix datasets.json hrefs
@@ -82,42 +77,40 @@ jobs:
       - name: Create case-study placeholders
         run: python scripts/create_missing_assets.py
 
-      - name: Repair mkdocs.yml (YAML + ensure extra_javascript)
-        shell: bash
+      - name: Repair mkdocs.yml (ensure extra_javascript)
         run: |
           python scripts/repair_mkdocs_yaml.py
           python scripts/ensure_mkdocs_extra_js.py
 
-      - name: Normalize case_studies links to datasets
+      - name: Normalize case_studies links
         run: python scripts/normalize_docs_links.py
 
-      - name: Create placeholders for referenced assets (strict-safe)
+      - name: Create placeholders for referenced assets
         run: python scripts/create_missing_assets.py
 
-      - name: Build dataset pages & visuals
+      - name: Build dataset pages and visuals
         run: python scripts/build_docs.py
 
-      - name: Build Visual Insights assets (ops_delay_plotly.json + advanced PNGs)
+      - name: Build Visual Insights assets
         run: python scripts/build_viz_advanced.py
 
-      - name: Build Ops Forecast assets (never fails)
+      - name: Build Ops Forecast assets
         env:
           PUBLISH_DIR: publish
           OUTPUT_JSON: docs/assets/ops_forecast.json
         run: python scripts/build_ops_forecast.py || true
 
-      - name: Guard: assert ops_forecast.json exists
-        shell: bash
+      - name: Guard: ops_forecast.json must exist
         run: |
           if [ ! -f docs/assets/ops_forecast.json ]; then
             echo "ERROR: docs/assets/ops_forecast.json missing"
             exit 1
           fi
 
-      - name: Setup Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Build MkDocs (strict)
+      - name: Build MkDocs
         run: mkdocs build --strict
 
       - name: Upload artifact
@@ -126,11 +119,14 @@ jobs:
           path: ./site
 
   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
