@@ -58,7 +58,7 @@ jobs:
           mkdir -p docs/publish
           mkdir -p docs/datasets
           mkdir -p docs/api
-
+      
       - name: Mirror publish → docs/publish (static serving)
         shell: bash
         run: |
@@ -67,7 +67,18 @@ jobs:
           else
             echo "No CSV files under publish/. Keeping docs/publish/ as-is."
           fi
-
+          
+      - name: Mirror docs/publish → publish (for builders)
+        shell: bash
+        run: |
+          if [ -d docs/publish ]; then
+            mkdir -p publish
+            cp -a docs/publish/. publish/
+            echo "Mirrored docs/publish → publish/"
+          else
+            echo "docs/publish not found; skipping mirror"
+          fi
+          
       - name: Build datasets index (docs/assets/datasets.json)
         run: python scripts/build_datasets_index.py
 
