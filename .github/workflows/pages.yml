@@ -100,6 +100,17 @@ jobs:
       - name: Create placeholders for referenced assets (strict-safe)
         run: python scripts/create_missing_assets.py
 
+      - name: Mirror docs/publish → publish (for builders)
+        shell: bash
+        run: |
+          if [ -d docs/publish ]; then
+            mkdir -p publish
+            cp -a docs/publish/. publish/
+            echo "Mirrored docs/publish → publish/"
+          else
+            echo "docs/publish not found; skipping mirror"
+          fi
+          
       - name: Build dataset pages & visuals
         run: python scripts/build_docs.py
 
