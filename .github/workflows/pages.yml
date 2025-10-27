@@ -126,6 +126,14 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Guard: assert ops_forecast.json exists
+        shell: bash
+        run: |
+          if [ ! -f docs/assets/ops_forecast.json ]; then
+            echo "ERROR: docs/assets/ops_forecast.json missing"
+            exit 1
+          fi
+
       - name: Build MkDocs (strict)
         run: mkdocs build --strict
 
