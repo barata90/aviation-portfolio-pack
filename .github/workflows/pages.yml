@@ -2,14 +2,15 @@ name: Deploy MkDocs to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
     paths:
-      - "docs/**"
-      - "publish/**"
-      - "scripts/**"
-      - "mkdocs.yml"
-      - ".github/workflows/pages.yml"
-      - "README.md"
+      - docs/**
+      - publish/**
+      - scripts/**
+      - mkdocs.yml
+      - .github/workflows/pages.yml
+      - README.md
   workflow_dispatch:
 
 permissions:
@@ -30,38 +31,50 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install Python deps
+        shell: bash
         run: |
           python -m pip install -U pip
-          pip install mkdocs mkdocs-material mkdocs-git-revision-date-localized-plugin pandas numpy matplotlib tabulate duckdb
+          pip install \
+            mkdocs \
+            mkdocs-material \
+            mkdocs-git-revision-date-localized-plugin \
+            pandas \
+            numpy \
+            matplotlib \
+            tabulate \
+            duckdb
 
       - name: Ensure folders
+        shell: bash
         run: |
-          mkdir -p docs/assets/plots docs/assets/schema docs/assets
-          mkdir -p docs/publish docs/datasets docs/api
+          mkdir -p docs/assets/plots
+          mkdir -p docs/assets/schema
+          mkdir -p docs/assets
+          mkdir -p docs/publish
+          mkdir -p docs/datasets
+          mkdir -p docs/api
           mkdir -p publish
 
-      # Static serving: if repo has /publish/*.csv, mirror to /docs/publish
-      - name: Mirror publish to docs/publish (static)
+      - name: Mirror publish -> docs/publish (static)
+        shell: bash
         run: |
           if ls publish/*.csv >/dev/null 2>&1; then
-            mkdir -p docs/publish
             cp -a publish/. docs/publish/
             echo "Mirrored publish -> docs/publish"
           else
             echo "No CSV under publish/"
           fi
 
-      # Builders read from /publish; mirror docs/publish there
-      - name: Mirror docs/publish to publish (for builders)
+      - name: Mirror docs/publish -> publish (for builders)
+        shell: bash
         run: |
           if [ -d docs/publish ]; then
-            mkdir -p publish
             cp -a docs/publish/. publish/
             echo "Mirrored docs/publish -> publish"
           else
@@ -78,6 +91,7 @@ jobs:
         run: python scripts/create_missing_assets.py
 
       - name: Repair mkdocs.yml (ensure extra_javascript)
+        shell: bash
         run: |
           python scripts/repair_mkdocs_yaml.py
           python scripts/ensure_mkdocs_extra_js.py
@@ -101,6 +115,7 @@ jobs:
         run: python scripts/build_ops_forecast.py || true
 
       - name: Guard: ops_forecast.json must exist
+        shell: bash
         run: |
           if [ ! -f docs/assets/ops_forecast.json ]; then
             echo "ERROR: docs/assets/ops_forecast.json missing"
@@ -121,9 +136,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
