@@ -108,6 +108,9 @@ jobs:
       - name: Build Visual Insights assets
         run: python scripts/build_viz_advanced.py
 
+      - name: Build Hub Rank JSON
+        run: python scripts/build_hub_rank_json.py || true
+
       - name: Build Ops Forecast assets
         env:
           PUBLISH_DIR: publish
