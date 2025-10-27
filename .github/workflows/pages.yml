@@ -92,6 +92,9 @@ jobs:
       - name: Build dataset pages & visuals
         run: python scripts/build_docs.py
 
+      - name: Build Visual Insights assets (ops_delay_plotly.json + advanced PNGs)
+        run: python scripts/build_viz_advanced.py
+
       - name: Build Ops Forecast assets (never fails)
         env:
           PUBLISH_DIR: publish
