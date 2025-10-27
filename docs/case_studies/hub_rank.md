@@ -18,29 +18,25 @@ This ranking uses **PageRank** on the directed route graph (weighted by `num_rou
   }
 
   function render() {
-    var url = bust(siteRoot() + 'assets/hub_rank.json');
-    fetch(url)
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
-        return r.json();
-      })
+    var jsonUrl = bust(siteRoot() + 'assets/hub_rank.json');
+    var pngUrl  = siteRoot() + 'assets/network_degree_top20.png';  // ABSOLUTE to site root
+
+    fetch(jsonUrl)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + jsonUrl); return r.json(); })
       .then(function (fig) {
         if (!fig || !fig.data) throw new Error('Invalid hub_rank.json');
-        Plotly.newPlot('hub_rank', fig.data, fig.layout || {}, {
-          displayModeBar: false,
-          responsive: true
-        });
+        Plotly.newPlot('hub_rank', fig.data, fig.layout || {}, { displayModeBar: false, responsive: true });
       })
       .catch(function (err) {
-        console.error('[hub-rank] fallback to static PNG:', err);
-        // Fallback ke gambar statis yang benar
-        document.getElementById('hub_rank').innerHTML =
-          '<img src="../assets/network_degree_top20.png" alt="Top-20 Airport Degree" style="max-width:100%;height:auto">';
+        console.error('[hub-rank] falling back to PNG:', err);
+        var el = document.getElementById('hub_rank');
+        el.innerHTML = '<img src="' + pngUrl + '" alt="Top-20 Airport Degree" style="max-width:100%;height:auto">';
       });
   }
 
+  // Support MkDocs Material instant loading
   if (window.document$ && typeof window.document$.subscribe === 'function') {
-    window.document$.subscribe(render);     // dukung MkDocs Material instant loading
+    window.document$.subscribe(render);
   } else if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', render);
   } else {
@@ -50,7 +46,7 @@ This ranking uses **PageRank** on the directed route graph (weighted by `num_rou
 </script>
 
 <noscript>
-  <img src="../assets/network_degree_top20.png" alt="Top-20 Airport Degree" style="max-width:100%;height:auto">
+  <img src="/{{ base_url }}/assets/network_degree_top20.png" alt="Top-20 Airport Degree" style="max-width:100%;height:auto">
 </noscript>
 
 **Download:** [assets/hub_rank.csv](../assets/hub_rank.csv)
