@@ -15,32 +15,24 @@ function onNav(fn){
   else if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', run); }
   else { run(); }
 }
-
-function toXY(pairs){
-  const xs = [], ys = [];
-  (pairs || []).forEach(p => { xs.push('t' in p ? new Date(p.t) : p.label); ys.push('y' in p ? p.y : p.value); });
-  return {x: xs, y: ys};
-}
+function toXY(arr){ const x=[],y=[]; (arr||[]).forEach(p=>{ x.push('t' in p ? new Date(p.t) : (p.label||p.month)); y.push('y' in p ? p.y : p.value); }); return {x,y}; }
 
 function render(){
   const url = bust(siteRoot() + 'assets/ops_forecast.json');
-  fetch(url).then(r => {
-    if (!r.ok) throw new Error('HTTP '+r.status+' '+url);
-    return r.json();
-  }).then(d => {
+  fetch(url).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' '+url); return r.json(); }).then(d => {
     const s  = toXY(d.series);
     const ft = toXY(d.fitted);
     const fc = toXY(d.forecast);
 
     const traces = [
       {x:s.x,  y:s.y,  type:'scatter', mode:'lines+markers', name:'Actual'},
-      {x:ft.x, y:ft.y, type:'scatter', mode:'lines',         name:'Trend × Seasonal'},
+      {x:ft.x, y:ft.y, type:'scatter', mode:'lines',         name:'Trend x Seasonal'},
       {x:fc.x, y:fc.y, type:'scatter', mode:'lines',         name:'Forecast', line:{dash:'dot'}}
     ];
 
-    const an = (d.anomalies || []);
+    const an = d.anomalies || [];
     if (an.length){
-      const ax = an.map(a => 't' in a ? new Date(a.t) : (a.label || a.month));
+      const ax = an.map(a => 't' in a ? new Date(a.t) : (a.label||a.month));
       const ay = an.map(a => 'y' in a ? a.y : a.value);
       const txt = an.map(a => 'z' in a ? ('z='+a.z) : '');
       traces.push({x:ax, y:ay, type:'scatter', mode:'markers', name:'Anomaly',
@@ -48,10 +40,10 @@ function render(){
                    hovertemplate:'%{x|%Y-%m}: %{y:.0f} %{text}<extra></extra>'});
     }
 
-    const layout = {margin:{l:50,r:10,t:10,b:40}, xaxis:{title:'Month'}, yaxis:{title:'Delay minutes'}, height:520};
-    Plotly.newPlot('ops_plot', traces, layout, {displayModeBar:false, responsive:true});
+    Plotly.newPlot('ops_plot', traces,
+      {margin:{l:50,r:10,t:10,b:40}, xaxis:{title:'Month'}, yaxis:{title:'Delay minutes'}, height:520},
+      {displayModeBar:false, responsive:true});
 
-    // table
     const tdiv = document.getElementById('ops_tbl');
     if (an.length){
       let html = "<h4>Detected Incidents</h4><table class='dataframe'><thead><tr><th>Month</th><th>Delay</th><th>z</th></tr></thead><tbody>";
@@ -66,14 +58,12 @@ function render(){
       tdiv.innerHTML = "<em>No anomalies detected at |z| ≥ 2.5.</em>";
     }
   }).catch(err=>{
-    document.getElementById('ops_plot').innerHTML =
-      "<em>Failed to load ops_forecast.json: " + String(err.message || err) + "</em>";
+    document.getElementById('ops_plot').innerHTML = "<em>Failed to load ops_forecast.json: " + String(err.message || err) + "</em>";
     console.error(err);
   });
 }
 onNav(render);
 </script>
-
 
 <style>
 .dataframe{border-collapse:collapse;width:100%;font-size:0.9rem;margin-top:10px;}
