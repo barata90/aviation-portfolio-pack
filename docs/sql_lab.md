@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- --- DuckDB SQL Lab: UI (auto-bundle + import map for apache-arrow) --- -->
+<!-- --- DuckDB SQL Lab: UI (no-pthread + IDB-safe + Arrow import map) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -47,7 +47,7 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- ① Import map supaya bare specifier 'apache-arrow' bisa di-resolve di browser -->
+<!-- Arrow untuk duckdb-browser.mjs -->
 <script type="importmap">
 {
   "imports": {
@@ -58,117 +58,111 @@ LIMIT 50;
 
 <script type="module">
 /* =============== helpers =============== */
-const log = (...a)=>console.log('[sql_lab]', ...a);
-function siteRoot(){ const p = location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; }
-function bust(u){ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; }
-function onNav(fn){ const run=()=>setTimeout(fn,0); if (window.document$ && typeof document$.subscribe==='function') document$.subscribe(run); if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run(); }
+const log=(...a)=>console.log('[sql_lab]',...a);
+function siteRoot(){const p=location.pathname.split('/').filter(Boolean);return p.length?'/'+p[0]+'/':'/';}
+function bust(u){const v=Date.now();return u+(u.includes('?')?'&':'?')+'v='+v;}
+function onNav(fn){const run=()=>setTimeout(fn,0); if(window.document$&&typeof document$.subscribe==='function') document$.subscribe(run); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();}
 
 /* =============== state =============== */
-const state = { duckdb:null, db:null, conn:null, views:[] };
+const state={duckdb:null,db:null,conn:null,views:[]};
 
-/* =============== load DuckDB (official bundle picker) =============== */
+/* =============== IDB probe (hindari “operation is insecure”) =============== */
+function probeIndexedDB(){
+  return new Promise((resolve)=>{
+    try{
+      const req=indexedDB.open('duckdb_probe');
+      req.onsuccess=()=>{try{req.result.close(); indexedDB.deleteDatabase('duckdb_probe');}catch{} resolve(true);};
+      req.onerror=()=>resolve(false);
+      req.onblocked=()=>resolve(false);
+    }catch{ resolve(false); }
+  });
+}
+
+/* =============== load DuckDB (paksa non-pthread) =============== */
 async function ensureDB(){
-  if (state.conn) return state.conn;
+  if(state.conn) return state.conn;
 
-  // Import ESM utama: library akan pilih bundle worker/WASM yg cocok.
+  // Jika IDB bermasalah (Safari Private/Firefox Strict), nonaktifkan supaya duckdb tidak menyentuhnya
+  const idbOK = await probeIndexedDB();
+  if(!idbOK){
+    try{ Object.defineProperty(globalThis,'indexedDB',{value:undefined,writable:true,configurable:true}); }catch{}
+  }
+
+  // Import modul utama
   let duckdb;
-  try {
+  try{
     duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
-  } catch (e) {
-    // Fallback ke unpkg bila CDN utama bermasalah
+  }catch{
     duckdb = await import('https://unpkg.com/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
   }
   state.duckdb = duckdb;
 
-  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  // Pilih bundle NON-pthread saja (menghindari SharedArrayBuffer / COI)
+  const all = duckdb.getJsDelivrBundles();
+  const candidates = all.filter(b => !b.pthreadWorker);          // <— kunci
+  const bundle = await duckdb.selectBundle(candidates);
   log('bundle selected:', bundle);
 
-  let worker;
-  try { worker = new Worker(bundle.mainWorker, { type:'module' }); }
-  catch { worker = new Worker(bundle.mainWorker); }
-
+  // Worker klasik (tanpa {type:'module'}) agar kompatibel lintas browser
+  const worker = new Worker(bundle.mainWorker);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
+  await db.instantiate(bundle.mainModule);                        // tanpa pthread arg
   const conn = await db.connect();
   await conn.query('INSTALL httpfs; LOAD httpfs;');
 
-  state.db = db; state.conn = conn;
+  state.db=db; state.conn=conn;
   return conn;
 }
 
-/* =============== register CSV views from datasets.json =============== */
-function sanitize(name){ return String(name).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/,''); }
-
+/* =============== register CSV views dari datasets.json =============== */
+function sanitize(s){return String(s).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/, '');}
 async function registerViews(){
-  if (state.views.length) return state.views;
-
+  if(state.views.length) return state.views;
   let ds;
-  try { ds = await (await fetch(bust(siteRoot()+'assets/datasets.json'))).json(); }
+  try{ ds = await (await fetch(bust(siteRoot()+'assets/datasets.json'))).json(); }
   catch(e){ log('datasets.json not available:', e); return state.views; }
 
   const items = Array.isArray(ds) ? ds : (ds && Array.isArray(ds.items)) ? ds.items : [];
-  for (const it of items){
+  for(const it of items){
     const f = it.file || it.path || '';
-    if (!/\.csv$/i.test(f)) continue;
-    const stem   = sanitize((f.split('/').pop()||'').replace(/\.csv$/i,''));
+    if(!/\.csv$/i.test(f)) continue;
+    const stem = sanitize((f.split('/').pop()||'').replace(/\.csv$/i,''));
     const csvUrl = bust(siteRoot()+'publish/'+f);
     await state.conn.query(`
       CREATE OR REPLACE VIEW "${stem}"
       AS SELECT * FROM read_csv_auto('${csvUrl}', AUTO_DETECT=TRUE, SAMPLE_SIZE=20000);
     `);
-    state.views.push({ view: stem, file: f });
+    state.views.push({view:stem,file:f});
   }
   return state.views;
 }
 
-/* =============== rendering (mendukung Arrow Result & legacy rows) =============== */
+/* =============== rendering (Arrow/rows) =============== */
 function renderTable(result){
-  const mount = document.getElementById('result');
-
-  // Arrow: toArray() -> array of objects
-  let rows = [];
-  if (result && typeof result.toArray === 'function') {
-    rows = result.toArray();
-  } else if (result && Array.isArray(result.rows)) {
-    // Legacy shape [[v1,v2,...]]
-    const fields = (result.schema?.fields || []).map(f=>f.name);
-    rows = result.rows.map(r => {
-      if (Array.isArray(r) && fields.length) {
-        const obj={}; fields.forEach((c,i)=>obj[c]=r[i]); return obj;
-      }
+  const mount=document.getElementById('result');
+  let rows=[];
+  if(result && typeof result.toArray==='function'){ rows = result.toArray(); }
+  else if(result && Array.isArray(result.rows)){
+    const fields = (result.schema?.fields||[]).map(f=>f.name);
+    rows = result.rows.map(r=>{
+      if(Array.isArray(r)&&fields.length){ const o={}; fields.forEach((c,i)=>o[c]=r[i]); return o; }
       return r;
     });
   }
-
-  if (!rows || rows.length === 0){
-    mount.innerHTML = '<em>No rows.</em>';
-    return;
-  }
-
+  if(!rows.length){ mount.innerHTML='<em>No rows.</em>'; return; }
   const header = Object.keys(rows[0]);
-  let html = "<table class='dataframe'><thead><tr>" +
-             header.map(c=>`<th>${c}</th>`).join('') +
-             "</tr></thead><tbody>";
-
-  const CAP = 5000;
-  let i = 0;
-  for (const r of rows){
-    if (i++ >= CAP) break;
-    html += "<tr>"+ header.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('') +"</tr>";
-  }
-  html += "</tbody></table>";
-  if (rows.length > CAP)
-    html += `<div style="opacity:.7;font-size:.85rem;margin-top:.35rem;">Showing first ${CAP.toLocaleString()} rows</div>`;
-
-  mount.innerHTML = html;
+  let html = "<table class='dataframe'><thead><tr>"+header.map(c=>`<th>${c}</th>`).join('')+"</tr></thead><tbody>";
+  const CAP=5000; let i=0;
+  for(const r of rows){ if(i++>=CAP) break; html+="<tr>"+header.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('')+"</tr>"; }
+  html+="</tbody></table>";
+  if(rows.length>CAP) html+=`<div style="opacity:.7;font-size:.85rem;margin-top:.35rem;">Showing first ${CAP.toLocaleString()} rows</div>`;
+  mount.innerHTML=html;
 }
-
 function showError(err){
-  const mount = document.getElementById('result');
-  const msg = err?.message ?? String(err);
-  mount.innerHTML = `<pre style="color:#b71c1c;white-space:pre-wrap;">${msg}</pre>`;
+  const mount=document.getElementById('result');
+  mount.innerHTML=`<pre style="color:#b71c1c;white-space:pre-wrap;">${err?.message ?? String(err)}</pre>`;
 }
 
 /* =============== run =============== */
@@ -178,44 +172,27 @@ async function runSQL(ev){
     const btn=document.getElementById('run');
     const status=document.getElementById('status');
     const qEl=document.getElementById('sql');
-
-    btn.disabled = true;
-    status.textContent = 'Running…';
-
-    await ensureDB();
-    await registerViews();
-
+    btn.disabled=true; status.textContent='Running…';
+    await ensureDB(); await registerViews();
     const res = await state.conn.query(qEl.value);
-    renderTable(res);
-    status.textContent = 'Done';
-  }catch(err){
-    console.error('[sql_lab] run error:', err);
-    document.getElementById('status').textContent='Error';
-    showError(err);
-  }finally{
-    const btn=document.getElementById('run');
-    if (btn) btn.disabled=false;
-  }
+    renderTable(res); status.textContent='Done';
+  }catch(err){ console.error('[sql_lab] run error:',err); document.getElementById('status').textContent='Error'; showError(err); }
+  finally{ const btn=document.getElementById('run'); if(btn) btn.disabled=false; }
 }
-window.__runSQL__ = runSQL;
+window.__runSQL__=runSQL;
 
 /* =============== boot =============== */
 onNav(async ()=>{
-  const btn = document.getElementById('run');
-  if (btn) btn.addEventListener('click', runSQL);
-
+  const btn=document.getElementById('run'); if(btn) btn.addEventListener('click',runSQL);
   try{
-    await ensureDB();
-    await registerViews();
-
-    const q = document.getElementById('sql');
-    if (q && !q.value.trim()){
+    await ensureDB(); await registerViews();
+    const q=document.getElementById('sql');
+    if(q && !q.value.trim()){
       const prefer = state.views.find(v=>v.view==='airport_degree') || state.views[0];
-      q.value = prefer
-        ? `SELECT * FROM ${prefer.view} LIMIT 15;`
-        : `SELECT month, delay_min
-           FROM read_json_auto('${siteRoot()}api/euro_atfm_timeseries_last24.json')
-           ORDER BY month DESC LIMIT 5;`;
+      q.value = prefer ? `SELECT * FROM ${prefer.view} LIMIT 15;`
+                       : `SELECT month, delay_min
+                          FROM read_json_auto('${siteRoot()}api/euro_atfm_timeseries_last24.json')
+                          ORDER BY month DESC LIMIT 5;`;
     }
   }catch(e){ console.warn('[sql_lab] boot warn:', e); }
 });
