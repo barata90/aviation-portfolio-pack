@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- --- DuckDB SQL Lab: robust bundle select + IDB-safe + Arrow-aware renderer --- -->
+<!-- --- DuckDB SQL Lab: robust, Arrow-aware, IDB-safe --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -47,7 +47,7 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- Import map so the browser can resolve the bare 'apache-arrow' specifier used by duckdb-browser.mjs -->
+<!-- Import map agar 'apache-arrow' bisa di-resolve oleh duckdb-browser.mjs -->
 <script type="importmap">
 {
   "imports": {
@@ -67,29 +67,26 @@ function onNav(fn){ const run=()=>setTimeout(fn,0); if(window.document$&&typeof 
 const state={ duckdb:null, db:null, conn:null, views:[] };
 
 /* =============== probes (SAB & IndexedDB) =============== */
-const supportsSAB = !!(self.SharedArrayBuffer) && (self.crossOriginIsolated===true);
+const supportsSAB = !!self.SharedArrayBuffer && self.crossOriginIsolated===true;
 function probeIndexedDB(){
   return new Promise((resolve)=>{
     try{
-      const req=indexedDB.open('duckdb_probe');
-      req.onsuccess=()=>{ try{req.result.close(); indexedDB.deleteDatabase('duckdb_probe');}catch{} resolve(true); };
-      req.onerror=()=>resolve(false);
-      req.onblocked=()=>resolve(false);
+      const req=indexedDB.open('duckdb_probe'); req.onsuccess=()=>{ try{req.result.close(); indexedDB.deleteDatabase('duckdb_probe');}catch{} resolve(true); };
+      req.onerror=()=>resolve(false); req.onblocked=()=>resolve(false);
     }catch{ resolve(false); }
   });
 }
 
-/* =============== load DuckDB (pass bundles OBJECT, not array) =============== */
+/* =============== load DuckDB (bundle resmi + worker blob) =============== */
 async function ensureDB(){
   if(state.conn) return state.conn;
 
-  // Some contexts (Safari/Private) make IDB throw "operation is insecure"
   const idbOK = await probeIndexedDB();
-  if(!idbOK){
+  if(!idbOK){ // hindari throw “operation is insecure”
     try{ Object.defineProperty(globalThis,'indexedDB',{value:undefined,writable:true,configurable:true}); }catch{}
   }
 
-  // Load main ESM (fallback CDN if needed)
+  // Import ESM utama; fallback ke unpkg jika jsDelivr bermasalah
   let duckdb;
   try{
     duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
@@ -98,30 +95,27 @@ async function ensureDB(){
   }
   state.duckdb = duckdb;
 
-  // IMPORTANT: keep the object shape returned by getJsDelivrBundles()
-  const bundlesObj = (duckdb.getJsDelivrBundles && duckdb.getJsDelivrBundles())
-                  || (duckdb.getCdnBundles && duckdb.getCdnBundles());
-  if(!bundlesObj) throw new Error('Unable to load bundle list');
+  // Ambil daftar bundle (OBJECT, bukan array) lalu pilih
+  const bundles = duckdb.getJsDelivrBundles ? duckdb.getJsDelivrBundles() : duckdb.getCdnBundles();
+  if(!bundles) throw new Error('Unable to load bundle list');
 
-  let bundle = await duckdb.selectBundle(bundlesObj);
+  let chosen = await duckdb.selectBundle(bundles);
+  // Jika bundle threaded dipilih tapi SAB/IDB tidak aman → pakai MVP
+  if (chosen?.pthreadWorker && (!supportsSAB || !idbOK)) chosen = bundles.mvp || chosen;
 
-  // If a pthread (threaded) bundle was chosen but SAB isn’t available, force MVP
-  if (bundle?.pthreadWorker && (!supportsSAB || !idbOK)) {
-    if (bundlesObj.mvp) bundle = bundlesObj.mvp;
-  }
-  if (!bundle?.mainWorker || !bundle?.mainModule) {
-    // final safety net: prefer MVP shape if present
-    const b = bundlesObj.mvp || bundlesObj.eh || bundle;
-    if (!b?.mainWorker || !b?.mainModule) throw new Error('No suitable DuckDB bundle found');
-    bundle = b;
+  if (!chosen?.mainWorker || !chosen?.mainModule) {
+    chosen = bundles.mvp || bundles.eh || chosen;
+    if (!chosen?.mainWorker || !chosen?.mainModule) throw new Error('No suitable DuckDB bundle found');
   }
 
-  const worker = new Worker(bundle.mainWorker); // classic worker for widest compatibility
+  // Worker via blob+importScripts — pola yang direkomendasikan dokumentasi
+  const workerSource = `importScripts("${chosen.mainWorker}");`;
+  const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
+  const worker = new Worker(workerUrl);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
 
-  // Pass pthreadWorker only when present
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  await db.instantiate(chosen.mainModule, chosen.pthreadWorker);
   const conn = await db.connect();
   await conn.query('INSTALL httpfs; LOAD httpfs;');
 
@@ -129,7 +123,7 @@ async function ensureDB(){
   return conn;
 }
 
-/* =============== register CSV views from datasets.json =============== */
+/* =============== daftar view CSV dari assets/datasets.json =============== */
 function sanitize(s){ return String(s).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/, ''); }
 async function registerViews(){
   if(state.views.length) return state.views;
@@ -152,42 +146,47 @@ async function registerViews(){
   return state.views;
 }
 
-/* =============== renderer (Arrow or arrays) =============== */
+/* =============== renderer (Arrow-first, fallback array) =============== */
 function renderTable(result){
   const mount=document.getElementById('result');
 
-  const fields = (result?.schema?.fields||[]).map(f=>f.name);
-  let rows = [];
+  // Arrow Table: bisa diiterasi langsung 'for (const row of result)'
+  let headers = [];
+  if (Array.isArray(result?.schema?.fields)) headers = result.schema.fields.map(f=>f.name);
 
-  if (typeof result?.toArray === 'function') {
-    const arr = result.toArray();            // could be array of objects OR array of arrays
+  const rows = [];
+  if (result && typeof result[Symbol.iterator] === 'function') {
+    // Arrow Table iterator → StructRowProxy
+    for (const row of result) {
+      const obj = {};
+      if (headers.length === 0) headers = Object.keys(row);
+      for (const k of headers) obj[k] = row[k];
+      rows.push(obj);
+    }
+  } else if (typeof result?.toArray === 'function') {
+    const arr = result.toArray();
     if (arr.length && !Array.isArray(arr[0])) {
-      rows = arr;                            // [{col:val,...}]
-    } else if (arr.length && Array.isArray(arr[0])) {
-      rows = arr.map(r => {
-        if (fields.length) {
-          const o={}; fields.forEach((c,i)=>o[c]=r[i]); return o;
-        }
-        const o={}; r.forEach((v,i)=>o['col_'+(i+1)]=v); return o;
-      });
+      rows.push(...arr); // array of objects
+      if (headers.length===0 && rows.length) headers = Object.keys(rows[0]);
     }
   } else if (Array.isArray(result?.rows)) {
-    rows = result.rows.map(r => {
-      if (Array.isArray(r) && fields.length) {
-        const o={}; fields.forEach((c,i)=>o[c]=r[i]); return o;
-      }
-      return r;
-    });
+    // Bentuk lama: rows = [[...]]
+    if (headers.length===0 && result?.schema?.fields) headers = result.schema.fields.map(f=>f.name);
+    for (const r of result.rows){
+      const obj={}; (headers.length?headers:r.map((_,i)=>'col_'+(i+1))).forEach((c,i)=>obj[c]=r[i]);
+      rows.push(obj);
+    }
   }
 
-  if(!rows.length){ mount.innerHTML='<em>No rows.</em>'; return; }
+  if (!rows.length){ mount.innerHTML='<em>No rows.</em>'; return; }
 
-  const header = Object.keys(rows[0]);
+  if (headers.length===0) headers = Object.keys(rows[0]);
+
   let html = "<table class='dataframe'><thead><tr>"
-           + header.map(c=>`<th>${c}</th>`).join('')
+           + headers.map(c=>`<th>${c}</th>`).join('')
            + "</tr></thead><tbody>";
   const CAP=5000; let i=0;
-  for(const r of rows){ if(i++>=CAP) break; html+="<tr>"+header.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('')+"</tr>"; }
+  for(const r of rows){ if(i++>=CAP) break; html+="<tr>"+headers.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('')+"</tr>"; }
   html+="</tbody></table>";
   if(rows.length>CAP) html+=`<div style="opacity:.7;font-size:.85rem;margin-top:.35rem;">Showing first ${CAP.toLocaleString()} rows</div>`;
   mount.innerHTML=html;
