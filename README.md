@@ -1,11 +1,12 @@
-> **For Emirates reviewers:**  
-> - 📘 Case study: [Emirates — Data Analytics Specialist](docs/case_studies/emirates_data_analytics_specialist.md)  
-> - 🧭 Data catalog: [Data Dictionary](docs/data_dictionary.md) • [Quality Report](docs/quality_report.md)  
-> - 🌐 Live site: https://barata90.github.io/aviation-portfolio-pack/
+**For Emirates reviewers:**
+- 📘 Case study: [Emirates — Data Analytics Specialist](docs/case_studies/emirates_data_analytics_specialist.md)
+- 🧭 Data catalog: [Data Dictionary](docs/data_dictionary.md) · [Quality Report](docs/quality_report.md)
+- 🌐 Live site: https://barata90.github.io/aviation-portfolio-pack/
 
-[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)
-[![Deploy site](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml)
+[![Deploy MkDocs to GitHub Pages](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml)
 [![Data Quality](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml)
+[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yaml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yaml)
+
 
 
 # Aviation Portfolio Data Pack
