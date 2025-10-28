@@ -1,18 +1,18 @@
 # Data Reliability — SLI/SLO
 
-**SLI** yang dipantau:
-- Freshness: selisih hari antara `max(date_column)` dan waktu build.
-- Schema drift: kolom hilang/tambahan terhadap kontrak.
-- Null ratio: proporsi null pada kolom kunci.
-- Uniqueness: duplikat pada primary key.
-- Range: nilai di luar domain/angka negatif.
+**Monitored SLIs :**
+- Freshness: day difference between max(date_column) and the build time.
+- Schema drift: missing/extra columns compared to the contract.
+- Null ratio: proportion of nulls in key columns.
+- Uniqueness: duplicates on the primary key.
+- Range: values outside the domain / negative numbers.
 
 **SLO (default):**
-- Freshness ≤ `freshness_max_lag_days` (lihat governance/datasets.yml)
-- Nulls pada kolom kunci = 0%
-- Uniqueness pelanggaran = 0
-- Range: 0 baris negatif untuk metrik kumulatif
+- Freshness ≤ `freshness_max_lag_days` (see governance/datasets.yml)
+- Nulls in key columns = 0%
+- Uniqueness violations = 0
+- Range: 0 negative rows for cumulative metrics
 
 **Escalation**
-- 🔴 ERROR → opsional mem-fail DQ (`--fail-on=error`) agar Pages/loader tidak jalan.
-- 🟠 WARN → publikasi tetap jalan, tapi diberi badge di report.
+- 🔴 ERROR → optionally fail DQ (`--fail-on=error`) so Pages deployment / data.
+- 🟠 WARN → publication continues, but a badge is shown in the report.
