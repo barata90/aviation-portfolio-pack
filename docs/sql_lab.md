@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import map untuk apache-arrow (dependensi duckdb-wasm) -->
+<!-- Import map untuk apache-arrow, dipakai oleh duckdb-wasm -->
 <script type="importmap">
 {
   "imports": {
@@ -40,7 +40,7 @@ LIMIT 50;
 <!-- Shim agar import map & ESM bisa diload ulang via importShim -->
 <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" crossorigin="anonymous"></script>
 
-<!-- ================= SQL Lab UI ================= -->
+<!-- =============== SQL Lab UI =============== -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -58,36 +58,38 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- ====== WRAPPER NON-MODULE: pastikan tombol selalu bereaksi ====== -->
+<!-- ===== WRAPPER (non-module): pastikan tombol selalu bekerja ===== -->
 <script>
 (function(){
   const STATUS = ()=>document.getElementById('status');
   const RESULT = ()=>document.getElementById('result');
+  let _moduleLoaded = false, _loading = false;
 
-  let _triedBoot = false;
-
-  async function bootModuleFallback(){
-    if (_triedBoot) return;
-    _triedBoot = true;
+  async function loadModuleOnce(){
+    if (_moduleLoaded || _loading) return;
+    _loading = true;
     try{
       if (!window.importShim) return; // shim belum siap
       const tag = document.getElementById('sql-lab-module');
       if (!tag) return;
       const code = tag.textContent || '';
       const url  = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(code);
-      await window.importShim(url); // paksa eksekusi ulang modul
+      await window.importShim(url);    // eksekusi modul via shim (bukan native)
+      _moduleLoaded = true;
     }catch(e){
       window.__sqlLabInitError = e;
+    }finally{
+      _loading = false;
     }
   }
 
-  async function waitForRunner(deadlineMs=6000){
+  async function waitRunner(ms=6000){
     const t0=Date.now();
-    let once=false;
-    while(Date.now()-t0<deadlineMs){
+    while(Date.now()-t0<ms){
       if (window.__runSQL__) return true;
-      // coba sekali injeksi fallback kalau belum ready dalam ~600ms
-      if (!once && Date.now()-t0>600) { once=true; await bootModuleFallback(); }
+      // Coba load modul bila belum
+      await loadModuleOnce();
+      if (window.__runSQL__) return true;
       await new Promise(r=>setTimeout(r,120));
     }
     return !!window.__runSQL__;
@@ -100,12 +102,11 @@ LIMIT 50;
       if (btn) btn.disabled=true;
       if (STATUS()) STATUS().textContent='Loading engine…';
 
-      const ok = await waitForRunner(7000);
+      const ok = await waitRunner(8000);
 
       if (ok && window.__runSQL__){
         await window.__runSQL__(ev);
       }else{
-        // Tampilkan error inisialisasi (jika ada)
         if (window.__sqlLabInitError){
           RESULT().innerHTML = '<pre style="color:#b71c1c;white-space:pre-wrap;">'
             + (window.__sqlLabInitError.message||String(window.__sqlLabInitError))
@@ -122,7 +123,7 @@ LIMIT 50;
     }
   };
 
-  // Bind normal (di luar onclick) juga
+  // Bind normal juga (untuk yang tidak klik via onclick)
   document.addEventListener('DOMContentLoaded', function(){
     const btn=document.getElementById('run');
     if (btn) btn.addEventListener('click', window.__sqlLabClick);
@@ -130,8 +131,8 @@ LIMIT 50;
 })();
 </script>
 
-<!-- ====== MODULE: DuckDB EH + Blob Worker same-origin ====== -->
-<script type="module" id="sql-lab-module">
+<!-- ===== MODUL DISIMPAN SEBAGAI TEKS: dieksekusi via importShim ===== -->
+<script type="application/x-sql-lab-module" id="sql-lab-module">
 const log = (...a)=>console.log('[sql_lab]', ...a);
 function siteRoot(){ const p=location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; }
 function bust(u){ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; }
@@ -246,7 +247,7 @@ onNav(async ()=>{
            ORDER BY month DESC LIMIT 5;`;
     }
   }catch(e){
-    window.__sqlLabInitError = e; // biar wrapper bisa menampilkannya
+    window.__sqlLabInitError = e;
     console.warn('[sql_lab] init warn:', e);
   }
 });
