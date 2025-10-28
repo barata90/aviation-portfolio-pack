@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import map: resolve bare module 'apache-arrow' used by duckdb-wasm -->
+<!-- Resolve 'apache-arrow' used by duckdb-wasm -->
 <script type="importmap">
 {
   "imports": {
@@ -37,10 +37,10 @@ LIMIT 50;
   }
 }
 </script>
-<!-- Polyfill for older browsers (safe to include) -->
+<!-- Safe polyfill so import maps work everywhere -->
 <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" crossorigin="anonymous"></script>
 
-<!-- --- DuckDB SQL Lab: UI (reliable bundle auto-select) --- -->
+<!-- --- DuckDB SQL Lab: UI (force EH build + same-origin Blob worker) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -59,7 +59,7 @@ LIMIT 50;
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
 <script type="module">
-/* ================== helpers ================== */
+/* =============== helpers =============== */
 const log = (...a)=>console.log('[sql_lab]', ...a);
 function siteRoot(){ const p = location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; }
 function bust(u){ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; }
@@ -69,46 +69,48 @@ function onNav(fn){
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
 }
 
-/* ================== state ================== */
-const state = { duckdb:null, db:null, conn:null, views:[] };
+/* =============== state =============== */
+const state = { db:null, conn:null, views:[] };
 
-/* ================== load DuckDB via official bundle picker ================== */
+/* =============== load DuckDB (EH build) with same-origin Blob worker =============== */
+import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.mjs';
+const WASM_URL   = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-wasm-eh.wasm';
+const WORKER_URL = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js';
+
 async function ensureDB(){
   if (state.conn) return state.conn;
 
-  // Satu entry-point ESM; biar library pilih bundle terbaik (WASM/worker) untuk browser
-  const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
-  state.duckdb = duckdb;
+  // Create a same-origin Blob worker to dodge Safari's “operation is insecure”
+  let worker;
+  try{
+    const src = await (await fetch(WORKER_URL, {mode:'cors'})).text();
+    const blob = new Blob([src], {type:'text/javascript'});
+    const blobURL = URL.createObjectURL(blob);
+    worker = new Worker(blobURL);
+  }catch(e){
+    // Fallback: direct worker (usually fine in Chromium)
+    worker = new Worker(WORKER_URL);
+  }
 
-  const bundles = duckdb.getJsDelivrBundles();
-  const bundle  = await duckdb.selectBundle(bundles);
-  log('bundle selected:', bundle);
-
-  // Worker sesuai rekomendasi DuckDB
-  const worker = new Worker(bundle.mainWorker);
   const logger = new duckdb.ConsoleLogger();
-
   const db = new duckdb.AsyncDuckDB(logger, worker);
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-
+  await db.instantiate(WASM_URL);          // EH build → no pthread / no cross-origin isolation needed
   const conn = await db.connect();
   await conn.query('INSTALL httpfs; LOAD httpfs;');
 
-  state.db = db;
-  state.conn = conn;
+  state.db = db; state.conn = conn;
   return conn;
 }
 
-/* ================== register CSV views from datasets.json ================== */
+/* =============== register CSV views from datasets.json =============== */
 function sanitize(name){ return String(name).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/,''); }
 
 async function registerViews(){
   if (state.views.length) return state.views;
 
-  const url = bust(siteRoot()+'assets/datasets.json');
   let ds;
-  try { ds = await (await fetch(url)).json(); }
-  catch(e){ log('datasets.json not found or unreadable:', e); return state.views; }
+  try { ds = await (await fetch(bust(siteRoot()+'assets/datasets.json'))).json(); }
+  catch(e){ log('datasets.json not found/unreadable:', e); return state.views; }
 
   const items = Array.isArray(ds) ? ds : (ds && Array.isArray(ds.items)) ? ds.items : [];
   for (const it of items){
@@ -125,7 +127,7 @@ async function registerViews(){
   return state.views;
 }
 
-/* ================== render ================== */
+/* =============== render =============== */
 function renderTable(df){
   const mount = document.getElementById('result');
   if (!df || !df.rows || df.rows.length===0){ mount.innerHTML='<em>No rows.</em>'; return; }
@@ -139,41 +141,34 @@ function renderTable(df){
 }
 function showError(err){
   const mount = document.getElementById('result');
-  const msg = err && err.message ? err.message : (typeof err==='string' ? err : String(err));
+  const msg = err?.message || String(err);
   mount.innerHTML = `<pre style="color:#b71c1c;white-space:pre-wrap;">${msg}</pre>`;
 }
 
-/* ================== run ================== */
+/* =============== run =============== */
 async function runSQL(ev){
   try{
-     if (ev && typeof ev.preventDefault==='function') ev.preventDefault();
+    if (ev?.preventDefault) ev.preventDefault();
+    const btn=document.getElementById('run'); const status=document.getElementById('status'); const qEl=document.getElementById('sql');
+    btn.disabled=true; status.textContent='Running…';
 
-     const btn=document.getElementById('run');
-     const status=document.getElementById('status');
-     const qEl=document.getElementById('sql');
+    await ensureDB();
+    await registerViews();
 
-     btn.disabled=true;
-     status.textContent='Running…';
-
-     await ensureDB();
-     await registerViews();
-
-     const sql = qEl.value;
-     const res = await state.conn.query(sql);
-     renderTable(res);
-     status.textContent='Done';
+    const res = await state.conn.query(qEl.value);
+    renderTable(res);
+    status.textContent='Done';
   }catch(err){
-     console.error('[sql_lab] run error:', err);
-     document.getElementById('status').textContent='Error';
-     showError(err);
+    console.error('[sql_lab] run error:', err);
+    document.getElementById('status').textContent='Error';
+    showError(err);
   }finally{
-     const btn=document.getElementById('run');
-     if (btn) btn.disabled=false;
+    const btn=document.getElementById('run'); if (btn) btn.disabled=false;
   }
 }
-window.__runSQL__ = runSQL;  // fallback untuk onclick
+window.__runSQL__ = runSQL;
 
-/* ================== boot ================== */
+/* =============== boot =============== */
 onNav(async ()=>{
   const btn = document.getElementById('run');
   if (btn) btn.addEventListener('click', runSQL);
@@ -181,7 +176,6 @@ onNav(async ()=>{
   try{
     await ensureDB();
     await registerViews();
-
     const q = document.getElementById('sql');
     if (q && !q.value.trim()){
       const prefer = state.views.find(v=>v.view==='airport_degree') || state.views[0];
@@ -191,9 +185,7 @@ onNav(async ()=>{
            FROM read_json_auto('${siteRoot()}api/euro_atfm_timeseries_last24.json')
            ORDER BY month DESC LIMIT 5;`;
     }
-  }catch(e){
-    console.warn('[sql_lab] boot warn:', e);
-  }
+  }catch(e){ console.warn('[sql_lab] boot warn:', e); }
 });
 </script>
 
