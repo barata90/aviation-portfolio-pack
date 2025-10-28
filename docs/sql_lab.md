@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import maps (normal & shim) agar bare import aman -->
+<!-- Import maps (normal & shim) agar bare import apache-arrow terselesaikan -->
 <script type="importmap">
 {
   "imports": {
@@ -54,7 +54,6 @@ LIMIT 50;
 </div>
 
 <p>
-  <!-- inline onclick = fallback paling kuat -->
   <button id="run" type="button" class="md-button md-button--primary"
           style="padding:.45rem .9rem; cursor:pointer; position:relative; z-index:4;"
           onclick="window.__runSQL__ && window.__runSQL__(event)">
@@ -65,7 +64,6 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- =============== Main logic (non-module, gunakan importShim saat klik) =============== -->
 <script>
 (function(){
   const log = (...a)=>console.log('[sql_lab]', ...a);
@@ -74,41 +72,43 @@ LIMIT 50;
   const siteRoot = ()=>{ const p=location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; };
   const bust = (u)=>{ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; };
 
-  const DUCKDB_MJS   = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.mjs';
-  const DUCKDB_WASM  = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-wasm-eh.wasm';
-  const DUCKDB_WORKER= 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js';
+  /* >>> FIX: gunakan browser.mjs (bukan ...-eh.mjs) */
+  const DUCKDB_MJS = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs';
 
   let _duckdb=null, _db=null, _conn=null, _views=[];
 
   function sanitize(name){ return String(name).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/,''); }
 
-  async function makeSameOriginWorker(){
+  async function makeSameOriginWorker(url){
     try{
-      const js = await (await fetch(DUCKDB_WORKER, {mode:'cors'})).text();
-      const url = URL.createObjectURL(new Blob([js], {type:'text/javascript'}));
-      return new Worker(url);
+      const js = await (await fetch(url, {mode:'cors'})).text();
+      const blobUrl = URL.createObjectURL(new Blob([js], {type:'text/javascript'}));
+      return new Worker(blobUrl);
     }catch(e){
       log('worker blob fallback -> direct URL', e);
-      return new Worker(DUCKDB_WORKER);
+      return new Worker(url);
     }
   }
 
   async function getConn(){
     if (_conn) return _conn;
+    if (typeof importShim !== 'function') throw new Error('Engine belum siap. Coba reload (Ctrl/Cmd+Shift+R).');
 
-    // Pastikan es-module-shims sudah siap
-    if (typeof importShim !== 'function') {
-      throw new Error('Engine belum siap. Coba reload (Ctrl/Cmd+Shift+R).');
-    }
-
-    // Import ESM saat dibutuhkan (klik)
     const duckdb = await importShim(DUCKDB_MJS);
     _duckdb = duckdb;
 
-    const worker = await makeSameOriginWorker();
+    // >>> FIX: pilih bundle resmi dari jsDelivr
+    const bundles = duckdb.getJsDelivrBundles();
+    const bundle  = await duckdb.selectBundle(bundles);
+    log('bundle selected:', bundle);
+
+    const worker = await makeSameOriginWorker(bundle.mainWorker);
     const logger = new duckdb.ConsoleLogger();
     const db = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(DUCKDB_WASM);
+
+    // >>> FIX: instantiate pakai bundle.mainModule (+ pthreadWorker jika ada)
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+
     const conn = await db.connect();
     await conn.query('INSTALL httpfs; LOAD httpfs;');
 
@@ -174,10 +174,8 @@ LIMIT 50;
     }
   }
 
-  // Expose untuk inline onclick
   window.__runSQL__ = runSQL;
 
-  // Prefill ringan (tanpa memaksa import modul di awal)
   document.addEventListener('DOMContentLoaded', ()=>{
     const q = document.getElementById('sql');
     if (q && !q.value.trim()){
