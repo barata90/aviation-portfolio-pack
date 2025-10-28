@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- --- DuckDB SQL Lab: UI (auto-bundle, Arrow-aware renderer) --- -->
+<!-- --- DuckDB SQL Lab: UI (auto-bundle + import map for apache-arrow) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -47,6 +47,15 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
+<!-- ① Import map supaya bare specifier 'apache-arrow' bisa di-resolve di browser -->
+<script type="importmap">
+{
+  "imports": {
+    "apache-arrow": "https://cdn.jsdelivr.net/npm/apache-arrow@14.0.2/+esm"
+  }
+}
+</script>
+
 <script type="module">
 /* =============== helpers =============== */
 const log = (...a)=>console.log('[sql_lab]', ...a);
@@ -61,14 +70,19 @@ const state = { duckdb:null, db:null, conn:null, views:[] };
 async function ensureDB(){
   if (state.conn) return state.conn;
 
-  // Satu import ESM — biarkan library memilih bundle terbaik
-  const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
+  // Import ESM utama: library akan pilih bundle worker/WASM yg cocok.
+  let duckdb;
+  try {
+    duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
+  } catch (e) {
+    // Fallback ke unpkg bila CDN utama bermasalah
+    duckdb = await import('https://unpkg.com/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
+  }
   state.duckdb = duckdb;
 
-  const bundle  = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   log('bundle selected:', bundle);
 
-  // Worker sebagai module (fallback tanpa opsi bila perlu)
   let worker;
   try { worker = new Worker(bundle.mainWorker, { type:'module' }); }
   catch { worker = new Worker(bundle.mainWorker); }
@@ -109,21 +123,23 @@ async function registerViews(){
   return state.views;
 }
 
-/* =============== rendering (mendukung Arrow Result) =============== */
+/* =============== rendering (mendukung Arrow Result & legacy rows) =============== */
 function renderTable(result){
   const mount = document.getElementById('result');
 
-  // Ambil kolom dari schema atau dari objek baris
-  const colsFromSchema = (result && result.schema && Array.isArray(result.schema.fields))
-    ? result.schema.fields.map(f => f.name)
-    : [];
-
-  // Arrow: toArray() -> array of objects; Fallback: result.rows (bentuk lama)
+  // Arrow: toArray() -> array of objects
   let rows = [];
   if (result && typeof result.toArray === 'function') {
-    rows = result.toArray();                 // [{col:val,...}, ...]
+    rows = result.toArray();
   } else if (result && Array.isArray(result.rows)) {
-    rows = result.rows;                      // [[v1,v2,...], ...]
+    // Legacy shape [[v1,v2,...]]
+    const fields = (result.schema?.fields || []).map(f=>f.name);
+    rows = result.rows.map(r => {
+      if (Array.isArray(r) && fields.length) {
+        const obj={}; fields.forEach((c,i)=>obj[c]=r[i]); return obj;
+      }
+      return r;
+    });
   }
 
   if (!rows || rows.length === 0){
@@ -131,10 +147,7 @@ function renderTable(result){
     return;
   }
 
-  const header = colsFromSchema.length
-    ? colsFromSchema
-    : (Array.isArray(rows[0]) ? rows[0].map((_,i)=>`col_${i+1}`) : Object.keys(rows[0]));
-
+  const header = Object.keys(rows[0]);
   let html = "<table class='dataframe'><thead><tr>" +
              header.map(c=>`<th>${c}</th>`).join('') +
              "</tr></thead><tbody>";
@@ -143,11 +156,7 @@ function renderTable(result){
   let i = 0;
   for (const r of rows){
     if (i++ >= CAP) break;
-    if (Array.isArray(r)){
-      html += "<tr>"+ r.map(v=>`<td>${v==null?'':v}</td>`).join('') +"</tr>";
-    } else {
-      html += "<tr>"+ header.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('') +"</tr>";
-    }
+    html += "<tr>"+ header.map(c=>`<td>${r[c]==null?'':r[c]}</td>`).join('') +"</tr>";
   }
   html += "</tbody></table>";
   if (rows.length > CAP)
@@ -165,7 +174,7 @@ function showError(err){
 /* =============== run =============== */
 async function runSQL(ev){
   try{
-    if (ev?.preventDefault) ev.preventDefault();
+    ev?.preventDefault?.();
     const btn=document.getElementById('run');
     const status=document.getElementById('status');
     const qEl=document.getElementById('sql');
@@ -188,7 +197,7 @@ async function runSQL(ev){
     if (btn) btn.disabled=false;
   }
 }
-window.__runSQL__ = runSQL; // fallback untuk onclick inline
+window.__runSQL__ = runSQL;
 
 /* =============== boot =============== */
 onNav(async ()=>{
@@ -199,7 +208,6 @@ onNav(async ()=>{
     await ensureDB();
     await registerViews();
 
-    // Prefill: pilih view CSV kalau ada; kalau tidak, demo JSON
     const q = document.getElementById('sql');
     if (q && !q.value.trim()){
       const prefer = state.views.find(v=>v.view==='airport_degree') || state.views[0];
