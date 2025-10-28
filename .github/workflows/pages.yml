@@ -107,11 +107,8 @@ jobs:
       - name: Build Visual Insights assets
         run: python scripts/build_viz_advanced.py
 
-      - name: Build Hub Rank JSON
-        run: python scripts/build_hub_rank_json.py || true
-
-      - name: Repair hub_rank.csv if empty
-        run: python scripts/fix_hub_rank_csv.py || true
+      - name: Ensure Hub Rank assets (CSV <-> JSON)
+        run: python scripts/ensure_hub_rank_assets.py
 
       - name: Build API euro_atfm_timeseries_last24.json
         run: python scripts/build_api_last24.py || true
