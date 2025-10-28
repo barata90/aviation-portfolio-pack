@@ -110,6 +110,12 @@ jobs:
       - name: Build Hub Rank JSON
         run: python scripts/build_hub_rank_json.py || true
 
+      - name: Repair hub_rank.csv if empty
+        run: python scripts/fix_hub_rank_csv.py || true
+
+      - name: Build API euro_atfm_timeseries_last24.json
+        run: python scripts/build_api_last24.py || true
+
       - name: Build Ops Forecast assets
         env:
           PUBLISH_DIR: publish
