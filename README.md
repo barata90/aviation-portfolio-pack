@@ -5,7 +5,7 @@
 
 [![Deploy MkDocs to GitHub Pages](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/pages.yml)
 [![Data Quality](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/data_quality.yml)
-[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yaml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yaml)
+[![Build data dictionary](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml/badge.svg)](https://github.com/barata90/aviation-portfolio-pack/actions/workflows/build.yml)
 
 
 
