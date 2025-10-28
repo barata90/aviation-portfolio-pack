@@ -29,6 +29,17 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
+<!-- Import map: resolve bare module 'apache-arrow' used by duckdb-wasm -->
+<script type="importmap">
+{
+  "imports": {
+    "apache-arrow": "https://cdn.jsdelivr.net/npm/apache-arrow@14.0.2/+esm"
+  }
+}
+</script>
+<!-- Polyfill for older browsers (safe to include) -->
+<script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" crossorigin="anonymous"></script>
+
 <!-- --- DuckDB SQL Lab: UI (reliable bundle auto-select) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
@@ -65,12 +76,12 @@ const state = { duckdb:null, db:null, conn:null, views:[] };
 async function ensureDB(){
   if (state.conn) return state.conn;
 
-  // Import satu file ESM saja; biar library yang pilih bundle terbaik
+  // Satu entry-point ESM; biar library pilih bundle terbaik (WASM/worker) untuk browser
   const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
   state.duckdb = duckdb;
 
   const bundles = duckdb.getJsDelivrBundles();
-  const bundle  = await duckdb.selectBundle(bundles);      // pilih worker/WASM paling cocok
+  const bundle  = await duckdb.selectBundle(bundles);
   log('bundle selected:', bundle);
 
   // Worker sesuai rekomendasi DuckDB
@@ -96,13 +107,8 @@ async function registerViews(){
 
   const url = bust(siteRoot()+'assets/datasets.json');
   let ds;
-  try {
-    ds = await (await fetch(url)).json();
-  } catch(e){
-    // Tidak fatal—SQL Lab masih bisa jalan pakai contoh JSON/SELECT 42
-    log('datasets.json not found or unreadable:', e);
-    return state.views;
-  }
+  try { ds = await (await fetch(url)).json(); }
+  catch(e){ log('datasets.json not found or unreadable:', e); return state.views; }
 
   const items = Array.isArray(ds) ? ds : (ds && Array.isArray(ds.items)) ? ds.items : [];
   for (const it of items){
@@ -140,41 +146,38 @@ function showError(err){
 /* ================== run ================== */
 async function runSQL(ev){
   try{
-    // Kalau handler dipanggil dari onclick/addEventListener, cegah default & bubble
-    if (ev && typeof ev.preventDefault==='function') ev.preventDefault();
+     if (ev && typeof ev.preventDefault==='function') ev.preventDefault();
 
-    const btn=document.getElementById('run');
-    const status=document.getElementById('status');
-    const qEl=document.getElementById('sql');
+     const btn=document.getElementById('run');
+     const status=document.getElementById('status');
+     const qEl=document.getElementById('sql');
 
-    btn.disabled=true;
-    status.textContent='Running…';
+     btn.disabled=true;
+     status.textContent='Running…';
 
-    await ensureDB();
-    await registerViews();
+     await ensureDB();
+     await registerViews();
 
-    const sql = qEl.value;
-    const res = await state.conn.query(sql);
-    renderTable(res);
-    status.textContent='Done';
+     const sql = qEl.value;
+     const res = await state.conn.query(sql);
+     renderTable(res);
+     status.textContent='Done';
   }catch(err){
-    console.error('[sql_lab] run error:', err);
-    document.getElementById('status').textContent='Error';
-    showError(err);
+     console.error('[sql_lab] run error:', err);
+     document.getElementById('status').textContent='Error';
+     showError(err);
   }finally{
-    const btn=document.getElementById('run');
-    if (btn) btn.disabled=false;
+     const btn=document.getElementById('run');
+     if (btn) btn.disabled=false;
   }
 }
 window.__runSQL__ = runSQL;  // fallback untuk onclick
 
 /* ================== boot ================== */
 onNav(async ()=>{
-  // pastikan tombol ter-bind walau Material instant nav
   const btn = document.getElementById('run');
   if (btn) btn.addEventListener('click', runSQL);
 
-  // Prefill: pilih view CSV kalau ada; kalau tidak ada pakai demo JSON
   try{
     await ensureDB();
     await registerViews();
@@ -189,7 +192,6 @@ onNav(async ()=>{
            ORDER BY month DESC LIMIT 5;`;
     }
   }catch(e){
-    // Tidak memblokir UI; nanti pengguna klik Run → akan tampil error jelas
     console.warn('[sql_lab] boot warn:', e);
   }
 });
