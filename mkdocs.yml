@@ -1,34 +1,46 @@
 site_name: Aviation Portfolio Pack
 site_description: Analytics & Engineering portfolio (Emirates Data Analytics Specialist)
 site_url: https://barata90.github.io/aviation-portfolio-pack/
+
+# Tambahan agar tombol "Edit this page" berfungsi
+repo_url: https://github.com/barata90/aviation-portfolio-pack
+edit_uri: edit/main/docs/
+
+# Build ketat (selaras dengan CI: mkdocs build --strict)
+strict: true
+
 theme:
   name: material
   language: en
   features:
-  - navigation.instant
-  - navigation.tracking
-  - navigation.indexes
-  - content.code.copy
-  - content.action.edit
+    - navigation.instant
+    - navigation.tracking
+    - navigation.indexes
+    - content.code.copy
+    - content.action.edit
+
 plugins:
-- search
-- git-revision-date-localized:
-    enable_creation_date: true
-    type: timeago
-    enable_git_follow: false
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      enable_git_follow: false
+
+# Muat Plotly sekali saja & pin versinya, lalu site_hooks.js
 extra_javascript:
-- assets/site_hooks.js
-- https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2
+  - https://cdn.plot.ly/plotly-2.32.0.min.js
+  - assets/site_hooks.js
+
 markdown_extensions:
-- admonition
-- attr_list
-- def_list
-- footnotes
-- md_in_html
-- toc:
-    permalink: true
-- pymdownx.details
-- pymdownx.superfences
-- pymdownx.tabbed:
-    alternate_style: true
-- pymdownx.emoji
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji
