@@ -30,16 +30,27 @@ LIMIT 50;
 ```
 
 <!-- --- DuckDB SQL Lab: UI --- -->
-<div id="lab" style="margin:.5rem 0;">
+<div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
+
 <p>
-  <button id="run" type="button" style="padding:.45rem .9rem;">Run</button>
-  <span id="status" style="margin-left:.6rem;color:#666;"></span>
+  <!-- Fallback onclick memastikan tetap jalan walau event listener belum terpasang -->
+  <button id="run"
+          type="button"
+          class="md-button md-button--primary"
+          style="padding:.45rem .9rem; cursor:pointer;"
+          onclick="window.__runSQL__ && window.__runSQL__()">
+    Run
+  </button>
+  <span id="status" style="margin-left:.6rem;color:#666;">Idle</span>
 </p>
+
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
 <script type="module">
+console.log('[sql_lab] module loaded');
+
 /* ---------- helpers (siteRoot, cache-buster, Material instant-nav hook) ---------- */
 function siteRoot(){ const p = location.pathname.split('/').filter(Boolean); return p.length ? '/' + p[0] + '/' : '/'; }
 function bust(u){ const v = Date.now(); return u + (u.includes('?') ? '&' : '?') + 'v=' + v; }
@@ -55,7 +66,6 @@ import duckdb_wasm   from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29
 import duckdb_worker from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js';
 
 let _db = null, _conn = null, _views = [];
-
 function sanitizeViewName(name){ return String(name).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+/, ''); }
 
 async function initDB(){
@@ -97,6 +107,7 @@ function renderTable(df){
   mount.innerHTML = html;
 }
 
+/* ---------- run ---------- */
 async function runSQL(){
   const btn = document.getElementById('run');
   const status = document.getElementById('status');
@@ -119,13 +130,14 @@ async function runSQL(){
   }
 }
 
-/* ---------- Boot (bind tombol + isi contoh query) ---------- */
+/* ►► penting: expose ke global untuk fallback onclick ◄◄ */
+window.__runSQL__ = runSQL;
+
+/* ---------- Boot (bind tombol + prefill query) ---------- */
 onNav(async () => {
   const btn = document.getElementById('run');
   if (!btn) return;
-  // pastikan tombol berada di atas elemen yang mungkin overlap
-  btn.style.position = 'relative'; btn.style.zIndex = '10';
-  btn.addEventListener('click', runSQL);
+  btn.addEventListener('click', runSQL);     // normal path
 
   try{
     await initDB();
@@ -145,9 +157,7 @@ onNav(async () => {
 
 <style>
 /* Pastikan area interaktif tidak ketutupan overlay dari blok kode di atas */
-#lab { position: relative; z-index: 1; }
-#run { cursor: pointer; }
-/* Styling tabel sederhana */
+#lab { position: relative; z-index: 3; }
 .dataframe{border-collapse:collapse;width:100%;font-size:0.9rem;}
 .dataframe th,.dataframe td{border:1px solid #ddd;padding:.35rem .5rem;white-space:nowrap;}
 .dataframe thead th{position:sticky;top:0;background:var(--md-default-fg-color--lightest,#f7f7f7);}
