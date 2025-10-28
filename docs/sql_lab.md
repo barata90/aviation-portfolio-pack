@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- --- DuckDB SQL Lab: UI (no-pthread + IDB-safe + Arrow import map) --- -->
+<!-- --- DuckDB SQL Lab: UI (robust bundle select + IDB-safe + Arrow import map) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
 </div>
@@ -47,7 +47,7 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- Arrow untuk duckdb-browser.mjs -->
+<!-- Map bare specifier used by duckdb-browser.mjs -->
 <script type="importmap">
 {
   "imports": {
@@ -66,7 +66,7 @@ function onNav(fn){const run=()=>setTimeout(fn,0); if(window.document$&&typeof d
 /* =============== state =============== */
 const state={duckdb:null,db:null,conn:null,views:[]};
 
-/* =============== IDB probe (hindari “operation is insecure”) =============== */
+/* =============== IDB probe (avoid “operation is insecure”) =============== */
 function probeIndexedDB(){
   return new Promise((resolve)=>{
     try{
@@ -78,17 +78,17 @@ function probeIndexedDB(){
   });
 }
 
-/* =============== load DuckDB (paksa non-pthread) =============== */
+/* =============== load DuckDB (robust, prefer non-pthread) =============== */
 async function ensureDB(){
   if(state.conn) return state.conn;
 
-  // Jika IDB bermasalah (Safari Private/Firefox Strict), nonaktifkan supaya duckdb tidak menyentuhnya
+  // Some browsers (private mode) make IDB throw "operation is insecure"
   const idbOK = await probeIndexedDB();
   if(!idbOK){
     try{ Object.defineProperty(globalThis,'indexedDB',{value:undefined,writable:true,configurable:true}); }catch{}
   }
 
-  // Import modul utama
+  // Import main ESM (with fallback CDN)
   let duckdb;
   try{
     duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser.mjs');
@@ -97,18 +97,26 @@ async function ensureDB(){
   }
   state.duckdb = duckdb;
 
-  // Pilih bundle NON-pthread saja (menghindari SharedArrayBuffer / COI)
-  const all = duckdb.getJsDelivrBundles();
-  const candidates = all.filter(b => !b.pthreadWorker);          // <— kunci
-  const bundle = await duckdb.selectBundle(candidates);
-  log('bundle selected:', bundle);
+  // Normalize bundles to an array (fixes “all.filter is not a function”)
+  const raw = (duckdb.getJsDelivrBundles && duckdb.getJsDelivrBundles())
+           || (duckdb.getCdnBundles && duckdb.getCdnBundles())
+           || [];
+  let list = Array.isArray(raw) ? raw : Object.values(raw).flatMap(v => Array.isArray(v)?v:[v]).filter(Boolean);
 
-  // Worker klasik (tanpa {type:'module'}) agar kompatibel lintas browser
+  // Pick best bundle, but if it requires pthread (SAB), fallback to non-pthread
+  let bundle = await duckdb.selectBundle(list);
+  if (bundle && bundle.pthreadWorker){
+    const nonThread = list.find(b => !b.pthreadWorker);
+    if (nonThread) bundle = nonThread;
+  }
+  if (!bundle) throw new Error('No suitable DuckDB bundle found');
+
+  // Use classic worker for widest compatibility
   const worker = new Worker(bundle.mainWorker);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
 
-  await db.instantiate(bundle.mainModule);                        // tanpa pthread arg
+  await db.instantiate(bundle.mainModule); // no pthread arg needed
   const conn = await db.connect();
   await conn.query('INSTALL httpfs; LOAD httpfs;');
 
@@ -116,7 +124,7 @@ async function ensureDB(){
   return conn;
 }
 
-/* =============== register CSV views dari datasets.json =============== */
+/* =============== register CSV views from datasets.json =============== */
 function sanitize(s){return String(s).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/, '');}
 async function registerViews(){
   if(state.views.length) return state.views;
