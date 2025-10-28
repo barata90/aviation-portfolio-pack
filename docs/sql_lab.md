@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import map untuk dependensi 'apache-arrow' yang dipakai duckdb-wasm -->
+<!-- Import map untuk apache-arrow (dependensi duckdb-wasm) -->
 <script type="importmap">
 {
   "imports": {
@@ -37,7 +37,7 @@ LIMIT 50;
   }
 }
 </script>
-<!-- Shim agar import map & ESM jalan di semua browser -->
+<!-- Shim agar import map & ESM bisa diload ulang via importShim -->
 <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" crossorigin="anonymous"></script>
 
 <!-- ================= SQL Lab UI ================= -->
@@ -58,19 +58,39 @@ LIMIT 50;
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- ====== WRAPPER NON-MODULE: bikin tombol selalu hidup ====== -->
+<!-- ====== WRAPPER NON-MODULE: pastikan tombol selalu bereaksi ====== -->
 <script>
 (function(){
   const STATUS = ()=>document.getElementById('status');
   const RESULT = ()=>document.getElementById('result');
 
-  async function waitForRunner(deadlineMs=4000){
+  let _triedBoot = false;
+
+  async function bootModuleFallback(){
+    if (_triedBoot) return;
+    _triedBoot = true;
+    try{
+      if (!window.importShim) return; // shim belum siap
+      const tag = document.getElementById('sql-lab-module');
+      if (!tag) return;
+      const code = tag.textContent || '';
+      const url  = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(code);
+      await window.importShim(url); // paksa eksekusi ulang modul
+    }catch(e){
+      window.__sqlLabInitError = e;
+    }
+  }
+
+  async function waitForRunner(deadlineMs=6000){
     const t0=Date.now();
+    let once=false;
     while(Date.now()-t0<deadlineMs){
       if (window.__runSQL__) return true;
+      // coba sekali injeksi fallback kalau belum ready dalam ~600ms
+      if (!once && Date.now()-t0>600) { once=true; await bootModuleFallback(); }
       await new Promise(r=>setTimeout(r,120));
     }
-    return false;
+    return !!window.__runSQL__;
   }
 
   window.__sqlLabClick = async function(ev){
@@ -80,13 +100,12 @@ LIMIT 50;
       if (btn) btn.disabled=true;
       if (STATUS()) STATUS().textContent='Loading engine…';
 
-      // Jika module belum men-define __runSQL__, tunggu sebentar
-      const ok = await waitForRunner(5000);
+      const ok = await waitForRunner(7000);
 
       if (ok && window.__runSQL__){
         await window.__runSQL__(ev);
       }else{
-        // Kalau modul gagal init, tunjukkan error awal kalau ada
+        // Tampilkan error inisialisasi (jika ada)
         if (window.__sqlLabInitError){
           RESULT().innerHTML = '<pre style="color:#b71c1c;white-space:pre-wrap;">'
             + (window.__sqlLabInitError.message||String(window.__sqlLabInitError))
@@ -103,7 +122,7 @@ LIMIT 50;
     }
   };
 
-  // Bind juga via addEventListener untuk berjaga-jaga
+  // Bind normal (di luar onclick) juga
   document.addEventListener('DOMContentLoaded', function(){
     const btn=document.getElementById('run');
     if (btn) btn.addEventListener('click', window.__sqlLabClick);
@@ -112,7 +131,7 @@ LIMIT 50;
 </script>
 
 <!-- ====== MODULE: DuckDB EH + Blob Worker same-origin ====== -->
-<script type="module">
+<script type="module" id="sql-lab-module">
 const log = (...a)=>console.log('[sql_lab]', ...a);
 function siteRoot(){ const p=location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; }
 function bust(u){ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; }
@@ -212,8 +231,8 @@ window.__runSQL__ = async function(ev){
   try{ await doRun(); } finally{ if(btn) btn.disabled=false; }
 };
 
+// Prefill setelah navigasi
 onNav(async ()=>{
-  // Prefill query
   try{
     await ensureDB();
     await registerViews();
@@ -227,8 +246,7 @@ onNav(async ()=>{
            ORDER BY month DESC LIMIT 5;`;
     }
   }catch(e){
-    // simpan error supaya wrapper non-module bisa menampilkannya
-    window.__sqlLabInitError = e;
+    window.__sqlLabInitError = e; // biar wrapper bisa menampilkannya
     console.warn('[sql_lab] init warn:', e);
   }
 });
