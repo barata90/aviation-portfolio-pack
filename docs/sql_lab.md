@@ -29,25 +29,6 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import maps (normal & shim) agar bare import apache-arrow terselesaikan -->
-<script type="importmap">
-{
-  "imports": {
-    "apache-arrow": "https://cdn.jsdelivr.net/npm/apache-arrow@14.0.2/+esm"
-  }
-}
-</script>
-<script type="importmap-shim">
-{
-  "imports": {
-    "apache-arrow": "https://cdn.jsdelivr.net/npm/apache-arrow@14.0.2/+esm"
-  }
-}
-</script>
-
-<!-- Loader ESM universal -->
-<script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" async crossorigin="anonymous"></script>
-
 <!-- --- DuckDB SQL Lab: UI (auto-bundle, Arrow-aware renderer) --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
   <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
