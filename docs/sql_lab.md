@@ -29,7 +29,7 @@ ORDER BY rc.num_routes DESC
 LIMIT 50;
 ```
 
-<!-- Import Map (normal & shim) untuk bare import `apache-arrow` -->
+<!-- Import maps (normal & shim) agar bare import aman -->
 <script type="importmap">
 {
   "imports": {
@@ -45,7 +45,7 @@ LIMIT 50;
 }
 </script>
 
-<!-- Loader agar import map & ESM diproses di semua browser -->
+<!-- Loader ESM universal -->
 <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.9.0/dist/es-module-shims.min.js" async crossorigin="anonymous"></script>
 
 <!-- =============== SQL Lab UI =============== -->
@@ -54,57 +54,73 @@ LIMIT 50;
 </div>
 
 <p>
-  <button id="run" type="button" class="md-button md-button--primary" style="padding:.45rem .9rem; cursor:pointer;">Run</button>
+  <!-- inline onclick = fallback paling kuat -->
+  <button id="run" type="button" class="md-button md-button--primary"
+          style="padding:.45rem .9rem; cursor:pointer; position:relative; z-index:4;"
+          onclick="window.__runSQL__ && window.__runSQL__(event)">
+    Run
+  </button>
   <span id="status" style="margin-left:.6rem;color:#666;">Idle</span>
 </p>
 
 <div id="result" style="margin-top:10px;overflow:auto;"></div>
 
-<!-- =============== Main logic (module-shim, BUKAN type="module") =============== -->
-<script type="module-shim">
-  /* Helpers */
+<!-- =============== Main logic (non-module, gunakan importShim saat klik) =============== -->
+<script>
+(function(){
   const log = (...a)=>console.log('[sql_lab]', ...a);
-  function siteRoot(){ const p=location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; }
-  function bust(u){ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; }
+  const statusEl = ()=>document.getElementById('status');
+  const resultEl = ()=>document.getElementById('result');
+  const siteRoot = ()=>{ const p=location.pathname.split('/').filter(Boolean); return p.length?'/'+p[0]+'/':'/'; };
+  const bust = (u)=>{ const v=Date.now(); return u+(u.includes('?')?'&':'?')+'v='+v; };
 
-  /* DuckDB WASM (explicit URLs, + Blob Worker untuk aman di Pages) */
-  import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.mjs';
-  const WASM_URL   = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-wasm-eh.wasm';
-  const WORKER_URL = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js';
+  const DUCKDB_MJS   = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.mjs';
+  const DUCKDB_WASM  = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-wasm-eh.wasm';
+  const DUCKDB_WORKER= 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js';
 
-  async function makeSameOriginWorker(){
-    try{
-      const src = await (await fetch(WORKER_URL, {mode:'cors'})).text();
-      const blob = new Blob([src], {type:'text/javascript'});
-      const url  = URL.createObjectURL(blob);
-      return new Worker(url);
-    }catch(_){
-      // fallback: tetap coba pakai URL langsung
-      return new Worker(WORKER_URL);
-    }
-  }
-
-  const state = { db:null, conn:null, views:[] };
-
-  async function ensureDB(){
-    if (state.conn) return state.conn;
-    const worker = await makeSameOriginWorker();
-    const logger = new duckdb.ConsoleLogger();
-    const db     = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(WASM_URL);
-    const conn = await db.connect();
-    await conn.query('INSTALL httpfs; LOAD httpfs;');
-    state.db=db; state.conn=conn;
-    return conn;
-  }
+  let _duckdb=null, _db=null, _conn=null, _views=[];
 
   function sanitize(name){ return String(name).toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/^_+/,''); }
 
+  async function makeSameOriginWorker(){
+    try{
+      const js = await (await fetch(DUCKDB_WORKER, {mode:'cors'})).text();
+      const url = URL.createObjectURL(new Blob([js], {type:'text/javascript'}));
+      return new Worker(url);
+    }catch(e){
+      log('worker blob fallback -> direct URL', e);
+      return new Worker(DUCKDB_WORKER);
+    }
+  }
+
+  async function getConn(){
+    if (_conn) return _conn;
+
+    // Pastikan es-module-shims sudah siap
+    if (typeof importShim !== 'function') {
+      throw new Error('Engine belum siap. Coba reload (Ctrl/Cmd+Shift+R).');
+    }
+
+    // Import ESM saat dibutuhkan (klik)
+    const duckdb = await importShim(DUCKDB_MJS);
+    _duckdb = duckdb;
+
+    const worker = await makeSameOriginWorker();
+    const logger = new duckdb.ConsoleLogger();
+    const db = new duckdb.AsyncDuckDB(logger, worker);
+    await db.instantiate(DUCKDB_WASM);
+    const conn = await db.connect();
+    await conn.query('INSTALL httpfs; LOAD httpfs;');
+
+    _db=db; _conn=conn;
+    return conn;
+  }
+
   async function registerViews(){
-    if (state.views.length) return state.views;
+    if (_views.length) return _views;
     let ds;
     try { ds = await (await fetch(bust(siteRoot()+'assets/datasets.json'))).json(); }
-    catch(e){ log('datasets.json not found/unreadable:', e); return state.views; }
+    catch(e){ log('datasets.json not found/unreadable:', e); return _views; }
 
     const items = Array.isArray(ds) ? ds : (ds && Array.isArray(ds.items)) ? ds.items : [];
     for (const it of items){
@@ -112,17 +128,17 @@ LIMIT 50;
       if (!/\.csv$/i.test(f)) continue;
       const stem   = sanitize((f.split('/').pop()||'').replace(/\.csv$/i,''));
       const csvUrl = bust(siteRoot()+'publish/'+f);
-      await state.conn.query(`
+      await _conn.query(`
         CREATE OR REPLACE VIEW "${stem}"
         AS SELECT * FROM read_csv_auto('${csvUrl}', AUTO_DETECT=TRUE, SAMPLE_SIZE=20000);
       `);
-      state.views.push({ view: stem, file: f });
+      _views.push({ view: stem, file: f });
     }
-    return state.views;
+    return _views;
   }
 
   function renderTable(df){
-    const mount=document.getElementById('result');
+    const mount=resultEl();
     if(!df || !df.rows || df.rows.length===0){ mount.innerHTML='<em>No rows.</em>'; return; }
     const cols=df.schema.fields.map(f=>f.name);
     let html="<table class='dataframe'><thead><tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr></thead><tbody>";
@@ -133,59 +149,50 @@ LIMIT 50;
     mount.innerHTML=html;
   }
   function showError(err){
-    const mount=document.getElementById('result');
-    mount.innerHTML = `<pre style="color:#b71c1c;white-space:pre-wrap;">${err?.message||String(err)}</pre>`;
+    resultEl().innerHTML = `<pre style="color:#b71c1c;white-space:pre-wrap;">${err?.message||String(err)}</pre>`;
   }
 
-  async function runSQL(){
-    const btn=document.getElementById('run');
-    const status=document.getElementById('status');
-    const qEl=document.getElementById('sql');
+  async function runSQL(ev){
     try{
-      btn.disabled=true;
-      status.textContent='Running…';
-      await ensureDB();
+      ev && ev.preventDefault && ev.preventDefault();
+      const btn=document.getElementById('run');
+      btn.disabled=true; statusEl().textContent='Running…';
+
+      await getConn();
       await registerViews();
-      const res = await state.conn.query(qEl.value);
+
+      const sql = document.getElementById('sql').value;
+      const res = await _conn.query(sql);
       renderTable(res);
-      status.textContent='Done';
+      statusEl().textContent='Done';
     }catch(err){
       console.error('[sql_lab] run error:', err);
-      status.textContent='Error';
+      statusEl().textContent='Error';
       showError(err);
     }finally{
-      btn.disabled=false;
+      const btn=document.getElementById('run'); if(btn) btn.disabled=false;
     }
   }
 
-  // Expose & bind
+  // Expose untuk inline onclick
   window.__runSQL__ = runSQL;
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.getElementById('run')?.addEventListener('click', runSQL);
-  });
 
-  // Prefill contoh query
-  (async ()=>{
-    try{
-      await ensureDB();
-      await registerViews();
-      const q=document.getElementById('sql');
-      if(q && !q.value.trim()){
-        const prefer = state.views.find(v=>v.view==='airport_degree') || state.views[0];
-        q.value = prefer
-          ? `SELECT * FROM ${prefer.view} LIMIT 15;`
-          : `SELECT month, delay_min
-             FROM read_json_auto('${siteRoot()}api/euro_atfm_timeseries_last24.json')
-             ORDER BY month DESC LIMIT 5;`;
-      }
-    }catch(e){
-      console.warn('[sql_lab] init warn:', e);
+  // Prefill ringan (tanpa memaksa import modul di awal)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const q = document.getElementById('sql');
+    if (q && !q.value.trim()){
+      q.value = `SELECT month, delay_min
+FROM read_json_auto('${siteRoot()}api/euro_atfm_timeseries_last24.json')
+ORDER BY month DESC
+LIMIT 5;`;
     }
-  })();
+  });
+})();
 </script>
 
 <style>
 #lab { position: relative; z-index: 3; }
+#run { pointer-events: auto; }
 .dataframe{border-collapse:collapse;width:100%;font-size:0.9rem;}
 .dataframe th,.dataframe td{border:1px solid #ddd;padding:.35rem .5rem;white-space:nowrap;}
 .dataframe thead th{position:sticky;top:0;background:var(--md-default-fg-color--lightest,#f7f7f7);}
