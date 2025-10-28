@@ -2,7 +2,7 @@
 
 _Generated: 2025-10-22 00:52_
 
-Dokumen ini berisi ringkasan struktur & statistik kolom untuk dataset yang dipakai di portfolio.
+This document contains a summary of the structure and column statistics for the dataset used in the portfolio.
 
 ---
 ### airport_degree.csv
