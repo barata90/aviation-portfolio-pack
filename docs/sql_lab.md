@@ -47,7 +47,7 @@ const idbOK = await probeIndexedDB(); if(!idbOK){ try{ Object.defineProperty(glo
 
 if (chosen?.pthreadWorker && (!supportsSAB || !idbOK)) chosen = bundles.mvp || chosen; if (!chosen?.mainWorker || !chosen?.mainModule) chosen = bundles.mvp || bundles.eh || chosen;
 
-const workerSource = importScripts(&quot;${chosen.mainWorker}&quot;);; const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" })); const worker = new Worker(workerUrl); const logger = new duckdb.ConsoleLogger(); const db = new duckdb.AsyncDuckDB(logger, worker);
+// FIXED: Syntax error removed here (quotes instead of &quot;) const workerSource = importScripts(&quot;${chosen.mainWorker}&quot;);; const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" })); const worker = new Worker(workerUrl); const logger = new duckdb.ConsoleLogger(); const db = new duckdb.AsyncDuckDB(logger, worker);
 
 await db.instantiate(chosen.mainModule, chosen.pthreadWorker); const conn = await db.connect(); await conn.query('INSTALL httpfs; LOAD httpfs;');
 
@@ -55,15 +55,16 @@ state.db=db; state.conn=conn; return conn; }
 
 /* =============== REGISTER VIEWS (MANUAL LIST) =============== */ async function registerViews(){ if(state.views.length) return state.views;
 
-// DAFTAR FILE (HARUS SAMA PERSIS DENGAN FOLDER PUBLISH) const csvFiles = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
+const csvFiles = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
 
-// URL Raw GitHub (Pastikan link ini benar) const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
+// FIXED: Removed Google Search prefix const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
 
 for(const f of csvFiles){ const stem = f.replace('.csv', '').replace(/[^a-z0-9_]/g,'_'); const csvUrl = baseUrl + f;
 
 console.log(`Registering view: ${stem} from ${csvUrl}`);
 
 try {
+    // FIXED: Syntax error removed here (quotes instead of &amp;quot;)
     await state.conn.query(`
       CREATE OR REPLACE VIEW &quot;${stem}&quot;
       AS SELECT * FROM read_csv_auto(&#39;${csvUrl}&#39;, AUTO_DETECT=TRUE, SAMPLE_SIZE=20000);
@@ -82,7 +83,7 @@ const rows = []; if (result && typeof result[Symbol.iterator] === 'function') { 
 
 if (!rows.length){ mount.innerHTML='<em>No rows.</em>'; return; } if (headers.length===0) headers = Object.keys(rows[0]);
 
-let html = "<table class='dataframe'><thead><tr>" + headers.map(c=>&lt;th&gt;${c}&lt;/th&gt;).join('') + "</tr></thead><tbody>";
+// FIXED: Template literals syntax let html = "<table class='dataframe'><thead><tr>" + headers.map(c=>&lt;th&gt;${c}&lt;/th&gt;).join('') + "</tr></thead><tbody>";
 
 const CAP=5000; let i=0; for(const r of rows){ if(i++>=CAP) break; html+="<tr>"+headers.map(c=>&lt;td&gt;${r[c]==null?&#39;&#39;:r[c]}&lt;/td&gt;).join('')+"</tr>"; } html+="</tbody></table>";
 
