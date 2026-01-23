@@ -31,7 +31,21 @@ LIMIT 50;
 
 <!-- --- DuckDB SQL Lab: robust, Arrow-aware, IDB-safe --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
-  <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;">SELECT 42 AS answer;</textarea>
+  <p style="margin-bottom: 5px;">
+  <strong>👉 Click "Run" or press Shift+Enter to execute.</strong>
+</p>
+
+<textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;">
+-- Check Top 5 Airports (Sample Data)
+SELECT 
+    airport_name, 
+    city, 
+    country, 
+    latitude, 
+    longitude 
+FROM dim_airport_clean 
+LIMIT 5;
+</textarea>
 </div>
 
 <p>
