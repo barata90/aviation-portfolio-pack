@@ -62,18 +62,18 @@ await db.instantiate(chosen.mainModule, chosen.pthreadWorker); const conn = awai
 
 state.db=db; state.conn=conn; return conn; }
 
-/* =============== REGISTER VIEWS (MODIFIED: MANUAL LIST) =============== */ function sanitize(s){ return String(s).toLowerCase().replace(/[^a-z0-9_]/g,'').replace(/^+/, ''); }
+/* =============== REGISTER VIEWS (BAGIAN INI YANG SAYA PERBAIKI) =============== */ function sanitize(s){ return String(s).toLowerCase().replace(/[^a-z0-9_]/g,'').replace(/^+/, ''); }
 
 async function registerViews(){ if(state.views.length) return state.views;
 
-// --- BAGIAN INI SAYA PERBAIKI: --- // Kita daftarkan file secara manual agar tidak perlu datasets.json // File ini sesuai dengan screenshot folder 'publish' kamu const fileList = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
+// --- MANUAL FILE LIST (Biar gak error cari datasets.json) --- const fileList = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
 
-// Gunakan URL RAW GitHub agar DuckDB bisa membacanya tanpa kena error path lokal // PASTIKAN repository kamu public agar link ini bisa diakses const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
+// URL RAW GITHUB (Biar gak error path lokal) const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
 
 for(const f of fileList){ const stem = sanitize(f.replace('.csv','')); const csvUrl = baseUrl + f;
 
 // Debug log di console browser (F12)
-console.log(`[SQL Lab] Registering Table: ${stem} -&gt; ${csvUrl}`);
+console.log(`[SQL Lab] Loading: ${stem} -&gt; ${csvUrl}`);
 
 try {
     await state.conn.query(`
@@ -102,6 +102,6 @@ let html = "<table class='dataframe'><thead><tr>" + headers.map(c=>&lt;th&gt;${c
 
 /* =============== run =============== */ async function runSQL(ev){ try{ ev?.preventDefault?.(); const btn=document.getElementById('run'); const status=document.getElementById('status'); const qEl=document.getElementById('sql'); btn.disabled=true; status.textContent='Running…'; await ensureDB(); await registerViews(); const res = await state.conn.query(qEl.value); renderTable(res); status.textContent='Done'; }catch(err){ console.error('[sql_lab] run error:', err); document.getElementById('status').textContent='Error'; showError(err); } finally{ const btn=document.getElementById('run'); if(btn) btn.disabled=false; } } window.runSQL=runSQL;
 
-/* =============== boot =============== */ onNav(async ()=>{ const btn=document.getElementById('run'); if(btn) btn.addEventListener('click',runSQL); // Auto-init DB saat halaman dimuat (supaya lebih cepat saat diklik) try{ await ensureDB(); await registerViews(); }catch(e){ console.warn('[sql_lab] boot warn:', e); } }); </script>
+/* =============== boot =============== */ onNav(async ()=>{ const btn=document.getElementById('run'); if(btn) btn.addEventListener('click',runSQL); // Auto-init DB (Biar cepet) try{ await ensureDB(); await registerViews(); }catch(e){ console.warn('[sql_lab] boot warn:', e); } }); </script>
 
 <style> #lab { position: relative; z-index: 3; } .dataframe{border-collapse:collapse;width:100%;font-size:0.9rem;} .dataframe th,.dataframe td{border:1px solid #ddd;padding:.35rem .5rem;white-space:nowrap;} .dataframe thead th{position:sticky;top:0;background:var(--md-default-fg-color--lightest,#f7f7f7);} </style>
