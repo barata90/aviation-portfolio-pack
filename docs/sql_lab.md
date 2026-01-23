@@ -32,9 +32,13 @@ LIMIT 50;
 <!-- --- DuckDB SQL Lab: robust, Arrow-aware, IDB-safe --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
 
-<p style="margin-bottom: 5px;"> <strong>👉 Click "Run" or press Shift+Enter to execute.</strong> </p>
-
-<textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;"> -- Check Top 10 Airports by Connectivity SELECT iata, deg_total as total_routes FROM airport_degree ORDER BY total_routes DESC LIMIT 10; </textarea>
+<p style="margin-bottom: 5px;"><strong>👉 Click "Run" or press Shift+Enter to execute.</strong></p>
+<textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;">
+-- Load data directly from GitHub Raw (Anti-Gagal Mode)
+SELECT *
+FROM read_csv_auto('https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/airport_degree.csv')
+LIMIT 10;
+</textarea>
 
 </div>
 
