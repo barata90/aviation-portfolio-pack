@@ -31,10 +31,7 @@ LIMIT 50;
 
 <!-- --- DuckDB SQL Lab: robust, Arrow-aware, IDB-safe --- -->
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
-  <p style="margin-bottom: 5px;">
-  <strong>👉 Click "Run" or press Shift+Enter to execute.</strong>
-</p>
-
+ 
 <p style="margin-bottom: 5px;"><strong>👉 Click "Run" or press Shift+Enter to execute.</strong></p>
 <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;">
 -- Top 10 Airports by Connectivity (Safe Query)
