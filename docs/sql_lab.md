@@ -66,13 +66,14 @@ state.db=db; state.conn=conn; return conn; }
 
 async function registerViews(){ if(state.views.length) return state.views;
 
-// --- BAGIAN INI SAYA PERBAIKI: --- // Kita daftarkan file secara manual agar tidak perlu datasets.json const fileList = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
+// --- BAGIAN INI SAYA PERBAIKI: --- // Kita daftarkan file secara manual agar tidak perlu datasets.json // File ini sesuai dengan screenshot folder 'publish' kamu const fileList = [ "airport_degree.csv", "dim_airport_clean.csv", "euro_atfm_by_location.csv", "euro_atfm_timeseries.csv", "route_counts.csv", "top_od_pairs.csv" ];
 
-// Gunakan URL RAW GitHub agar DuckDB bisa membacanya tanpa kena error path lokal const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
+// Gunakan URL RAW GitHub agar DuckDB bisa membacanya tanpa kena error path lokal // PASTIKAN repository kamu public agar link ini bisa diakses const baseUrl = "https://www.google.com/search?q=https://raw.githubusercontent.com/barata90/aviation-portfolio-pack/main/publish/";
 
 for(const f of fileList){ const stem = sanitize(f.replace('.csv','')); const csvUrl = baseUrl + f;
 
-console.log(`Loading view: ${stem} from ${csvUrl}`); // Cek console browser untuk debug
+// Debug log di console browser (F12)
+console.log(`[SQL Lab] Registering Table: ${stem} -&gt; ${csvUrl}`);
 
 try {
     await state.conn.query(`
@@ -81,7 +82,7 @@ try {
     `);
     state.views.push({view:stem, file:f});
 } catch(err) {
-    console.warn(`Failed to load ${f}:`, err);
+    console.warn(`[SQL Lab] Failed to load ${f}:`, err);
 }
 } return state.views; }
 
