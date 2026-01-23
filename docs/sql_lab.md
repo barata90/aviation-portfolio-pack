@@ -35,16 +35,15 @@ LIMIT 50;
   <strong>👉 Click "Run" or press Shift+Enter to execute.</strong>
 </p>
 
+<p style="margin-bottom: 5px;"><strong>👉 Click "Run" or press Shift+Enter to execute.</strong></p>
 <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;">
--- Check Top 5 Airports (Sample Data)
+-- Top 10 Airports by Connectivity (Safe Query)
 SELECT 
-    airport_name, 
-    city, 
-    country, 
-    latitude, 
-    longitude 
-FROM dim_airport_clean 
-LIMIT 5;
+    iata, 
+    deg_total as total_routes
+FROM airport_degree
+ORDER BY total_routes DESC
+LIMIT 10;
 </textarea>
 </div>
 
