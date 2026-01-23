@@ -15,7 +15,8 @@ LIMIT 15;
 SELECT period_start, delay_minutes
 FROM euro_atfm_timeseries
 WHERE period_start >= DATE_trunc('month', CURRENT_DATE) - INTERVAL 23 MONTH
-ORDER BY 1;```
+ORDER BY 1;
+```
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;"> <p style="margin-bottom: 5px;"> <strong>👉 Click "Run" or press Shift+Enter to execute.</strong> </p>
 
 <textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;border:1px solid #ccc;"> -- Check Top 10 Airports (Data from publish/airport_degree.csv) SELECT iata, deg_total as total_routes FROM airport_degree ORDER BY total_routes DESC LIMIT 10; </textarea>
