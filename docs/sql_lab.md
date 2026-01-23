@@ -1,18 +1,28 @@
 # SQL Lab — Query `publish/*.csv` with DuckDB-WASM
 
-Run SQL **in your browser** against the portfolio CSVs. Each file under `publish/` is exposed as a **view** named by its file stem.
+Run SQL **in your browser** against the portfolio CSVs. Each file under `publish/` is exposed as a **view**.
 
 <div id="lab" style="margin:.5rem 0; position:relative; z-index:3;">
-<p style="margin-bottom: 5px;"><strong>👉 Click "Run" or press Shift+Enter to execute.</strong></p>
-<textarea id="sql" style="width:100%;height:160px;font-family:ui-monospace,monospace;padding:10px;border:1px solid #ccc;border-radius:4px;background:#f8f8f8;">
--- Top 10 Airports by Connectivity
-SELECT 
-    iata, 
-    deg_total as total_routes
-FROM airport_degree
-ORDER BY total_routes DESC
+
+  <div style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+    <button class="md-button" style="font-size:0.75rem; padding: 4px 10px; cursor:pointer; background:#e3f2fd; color:#0d47a1; border:none;" onclick="setQuery('global')">🏆 Top Global Hubs</button>
+    <button class="md-button" style="font-size:0.75rem; padding: 4px 10px; cursor:pointer; background:#e8f5e9; color:#1b5e20; border:none;" onclick="setQuery('me_eu')">⚔️ ME vs Europe</button>
+    <button class="md-button" style="font-size:0.75rem; padding: 4px 10px; cursor:pointer; background:#fff3e0; color:#e65100; border:none;" onclick="setQuery('routes')">✈️ Top Routes</button>
+    <button class="md-button" style="font-size:0.75rem; padding: 4px 10px; cursor:pointer; background:#ffebee; color:#b71c1c; border:none;" onclick="setQuery('delay')">⏱️ Delay Analysis</button>
+  </div>
+
+  <p style="margin-bottom: 5px; font-size:0.85em; color:#666;">
+    <strong>👉 Edit SQL below or select a button above, then click "Run Query".</strong>
+  </p>
+  
+  <textarea id="sql" style="width:100%;height:180px;font-family:ui-monospace,monospace;padding:10px;border:1px solid #ccc;border-radius:4px;background:#f8f8f8; color:#222; font-size:14px; line-height:1.4;">
+-- Click a button above to load a sample query...
+-- Default Example:
+SELECT iata, deg_total as total_routes 
+FROM airport_degree 
+ORDER BY deg_total DESC 
 LIMIT 10;
-</textarea>
+  </textarea>
 </div>
 
 <p>
@@ -21,12 +31,12 @@ LIMIT 10;
           class="md-button md-button--primary"
           style="padding:.45rem .9rem; cursor:pointer;"
           onclick="window.__runSQL__ && window.__runSQL__(event)">
-    Run Query
+    ▶ Run Query
   </button>
-  <span id="status" style="margin-left:.6rem;color:#666;font-style:italic;">Ready</span>
+  <span id="status" style="margin-left:.6rem;color:#666;font-style:italic;font-size:0.9em;">Ready</span>
 </p>
 
-<div id="result" style="margin-top:10px;overflow:auto;min-height:50px;border-top:1px solid #eee;padding-top:10px;"></div>
+<div id="result" style="margin-top:15px; overflow:auto; min-height:50px; border-top:1px solid #eee; padding-top:10px;"></div>
 
 <script type="importmap">
 {
@@ -38,9 +48,8 @@ LIMIT 10;
 </script>
 
 <script type="module">
+// --- Config & Helpers ---
 const log = (...a) => console.log('[sql_lab]', ...a);
-
-// Deteksi Root URL dengan tepat
 const getSiteRoot = () => {
     const path = window.location.pathname;
     if (path.includes('/aviation-portfolio-pack/')) return '/aviation-portfolio-pack/';
@@ -49,7 +58,61 @@ const getSiteRoot = () => {
 
 const state = { conn: null, initialized: false };
 
-// --- A. Siapkan DuckDB ---
+// --- E. PRESET QUERIES (English) ---
+const queries = {
+    global: `-- 🏆 Top 15 Most Connected Airports (Global Hubs)
+SELECT 
+    iata, 
+    deg_out AS outbound_routes,
+    deg_in AS inbound_routes,
+    deg_total AS total_connectivity
+FROM airport_degree
+ORDER BY deg_total DESC
+LIMIT 15;`,
+
+    me_eu: `-- ⚔️ Battle of Hubs: Middle East vs Europe
+-- Comparative analysis of connectivity strategies
+SELECT 
+    iata, 
+    deg_total AS total_connectivity,
+    CASE 
+        WHEN iata IN ('DXB', 'DOH', 'AUH', 'IST') THEN 'Middle East / Super Connector'
+        ELSE 'European Legacy Hub'
+    END AS region
+FROM airport_degree
+WHERE iata IN ('DXB', 'DOH', 'AUH', 'FRA', 'LHR', 'AMS', 'CDG', 'MUC')
+ORDER BY total_connectivity DESC;`,
+
+    routes: `-- ✈️ High Density Routes (Top OD Pairs)
+-- Airport pairs with the highest number of unique routes/airlines
+SELECT 
+    src_iata || ' ➡ ' || dst_iata AS route_pair,
+    num_routes AS carrier_count
+FROM route_counts
+ORDER BY num_routes DESC
+LIMIT 15;`,
+
+    delay: `-- ⏱️ Delay Analysis (Eurocontrol Data)
+-- Areas with the highest total delay minutes
+SELECT 
+    location,
+    CAST(delay_minutes AS INT) as total_delay_minutes
+FROM euro_atfm_by_location
+ORDER BY delay_minutes DESC
+LIMIT 10;`
+};
+
+// Button Helper Function
+window.setQuery = (key) => {
+    const q = queries[key];
+    if(q) {
+        document.getElementById('sql').value = q;
+        // Optional: Uncomment below to auto-run on click
+        // document.getElementById('run').click(); 
+    }
+};
+
+// --- A. Setup DuckDB ---
 async function ensureDB() {
     if (state.conn) return state.conn;
     
@@ -70,32 +133,29 @@ async function ensureDB() {
     return conn;
 }
 
-// --- B. Daftarkan Tabel (BAGIAN YANG DIPERBAIKI) ---
+// --- B. Register CSVs as Tables ---
 async function registerViews() {
     if (state.initialized) return;
     const conn = await ensureDB();
     const root = getSiteRoot();
     
     try {
-        // Ambil JSON
         const jsonUrl = root + 'assets/datasets.json';
         const resp = await fetch(jsonUrl);
-        if(!resp.ok) throw new Error("Gagal load datasets.json");
+        if(!resp.ok) throw new Error("Failed to load datasets.json");
         
         const data = await resp.json();
-        
-        // PERBAIKAN 1: Baca kunci 'datasets', fallback ke 'items'
+        // Fallback: check 'datasets' (new) or 'items' (old)
         const items = data.datasets || data.items || (Array.isArray(data) ? data : []);
 
         for (const item of items) {
-            // PERBAIKAN 2: Ambil path dari JSON
             const filePath = item.path || item.file; 
             if (!filePath || !filePath.endsWith('.csv')) continue;
             
-            // Nama Tabel
+            // Sanitize table name
             const tableName = item.name || filePath.split('/').pop().replace('.csv', '').replace(/[^a-z0-9_]/g, '_');
             
-            // PERBAIKAN 3: URL tidak perlu tambah 'publish/' lagi karena di JSON sudah ada
+            // Construct URL (root + path from JSON)
             const fileUrl = window.location.origin + root + filePath;
             
             await conn.query(`
@@ -106,16 +166,15 @@ async function registerViews() {
         }
         state.initialized = true;
     } catch (e) {
-        console.error("Registrasi Gagal:", e);
-        throw e;
+        console.error("Registration Failed:", e);
     }
 }
 
-// --- C. Render Tabel ---
+// --- C. Render Table to HTML ---
 function renderTable(arrowTable) {
     const mount = document.getElementById('result');
     if (!arrowTable || arrowTable.numRows === 0) {
-        mount.innerHTML = '<p style="color:#666;">No rows returned.</p>';
+        mount.innerHTML = '<p style="color:#666; font-style:italic;">No rows returned.</p>';
         return;
     }
 
@@ -123,7 +182,7 @@ function renderTable(arrowTable) {
     let html = `<table class="dataframe"><thead><tr>${fields.map(f => `<th>${f}</th>`).join('')}</tr></thead><tbody>`;
 
     const rows = arrowTable.toArray();
-    const limit = 50; // Batasi tampilan agar ringan
+    const limit = 100; 
     const displayRows = rows.slice(0, limit); 
     
     displayRows.forEach(row => {
@@ -135,11 +194,11 @@ function renderTable(arrowTable) {
     });
     
     html += "</tbody></table>";
-    if(rows.length > limit) html += `<p style="font-size:0.8em; color:#666; margin-top:5px;">Showing first ${limit} rows only.</p>`;
+    if(rows.length > limit) html += `<div style="font-size:0.8em; color:#666; margin-top:8px; text-align:right;">Showing first ${limit} of ${rows.length} rows.</div>`;
     mount.innerHTML = html;
 }
 
-// --- D. Eksekusi ---
+// --- D. Main Execution (Run Button) ---
 async function runSQL(ev) {
     ev?.preventDefault();
     const btn = document.getElementById('run');
@@ -150,7 +209,7 @@ async function runSQL(ev) {
     try {
         btn.disabled = true;
         status.textContent = 'Processing...';
-        resultDiv.innerHTML = '<div style="color:#666;">⏳ Running query...</div>';
+        resultDiv.innerHTML = '<div style="color:#666;">⏳ Initializing DB & Running query...</div>';
 
         await ensureDB();
         await registerViews();
@@ -160,7 +219,7 @@ async function runSQL(ev) {
         status.textContent = 'Done';
     } catch (err) {
         status.textContent = 'Error';
-        resultDiv.innerHTML = `<div style="color:red; background:#fff0f0; padding:10px; border:1px solid red; font-family:monospace;"><strong>Error:</strong> ${err.message}</div>`;
+        resultDiv.innerHTML = `<div style="color:#b71c1c; background:#ffebee; padding:12px; border:1px solid #ef9a9a; border-radius:4px; font-family:monospace; font-size:0.9em;"><strong>❌ Error:</strong><br>${err.message}</div>`;
         console.error(err);
     } finally {
         btn.disabled = false;
@@ -171,9 +230,30 @@ window.__runSQL__ = runSQL;
 </script>
 
 <style>
-.dataframe { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin-top: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.dataframe th { background: #f0f0f0; position: sticky; top: 0; text-align: left; font-weight: 600; color: #333; }
-.dataframe th, .dataframe td { border: 1px solid #e0e0e0; padding: 8px 12px; }
+/* Clean Table CSS */
+.dataframe { 
+    border-collapse: collapse; 
+    width: 100%; 
+    font-size: 0.85rem; 
+    margin-top: 5px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.dataframe th { 
+    background: #f1f3f4; 
+    position: sticky; 
+    top: 0; 
+    text-align: left; 
+    font-weight: 600; 
+    color: #444; 
+    border-bottom: 2px solid #ddd;
+    padding: 10px 12px;
+}
+.dataframe td { 
+    border-bottom: 1px solid #eee; 
+    padding: 8px 12px; 
+    color: #333;
+}
 .dataframe tr:nth-child(even) { background: #fafafa; }
-.dataframe tr:hover { background: #f1f1f1; }
+.dataframe tr:hover { background: #f5f5f5; }
 </style>
