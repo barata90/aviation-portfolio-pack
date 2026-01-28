@@ -50,21 +50,26 @@ aviation_portfolio_pack/
 Execute the following commands to replicate the pipeline on your local machine (macOS/Linux/WSL):
 
 ### 1. Environment Setup
+```text
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip -r requirements.txt
+```
 
 ### 2. Trigger ETL & Data Capture
 This script fetches real-world data from OpenFlights, EUROCONTROL, and OpenSky:
+```text
 chmod +x get_data.sh
 bash ./get_data.sh
+```
 
 ### 3. Build the Analytics Model
 Run the transformation engine to generate the BI-ready datasets and documentation:
+```text
 python scripts/make_data_dictionary.py \
   --csv-dir publish \
   --duckdb warehouse_local/otp.duckdb
-
+```
 ---
 
 ## Analytical Outputs
