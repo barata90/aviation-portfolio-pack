@@ -43,7 +43,7 @@ aviation_portfolio_pack/
 ├─ publish/            # Final "BI-ready" exports
 ├─ warehouse_local/    # Embedded DuckDB instance
 └─ docs/               # Technical documentation & business case studies
-
+```
 ---
 
 ## Getting Started
