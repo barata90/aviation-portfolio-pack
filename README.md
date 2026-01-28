@@ -44,6 +44,8 @@ aviation_portfolio_pack/
 ├─ warehouse_local/    # Embedded DuckDB instance
 └─ docs/               # Technical documentation & business case studies
 
+---
+
 ## Getting Started
 Execute the following commands to replicate the pipeline on your local machine (macOS/Linux/WSL):
 
@@ -62,6 +64,8 @@ Run the transformation engine to generate the BI-ready datasets and documentatio
 python scripts/make_data_dictionary.py \
   --csv-dir publish \
   --duckdb warehouse_local/otp.duckdb
+
+---
 
 ## Analytical Outputs
 
